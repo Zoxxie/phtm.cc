@@ -1,857 +1,666 @@
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
+-- Phantom UI - ClickGUI Edition (Purple Theme)
+
 local CoreGui = game:GetService("CoreGui")
-local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
 
-local Library = { Flags = {} }
-local Utility = {}
-
-local Theme = {
-    Bg = Color3.fromRGB(15, 15, 20),
-    Sidebar = Color3.fromRGB(20, 20, 26),
-    Topbar = Color3.fromRGB(20, 20, 26),
-    Accent = Color3.fromRGB(99, 102, 241), -- Sleek Indigo
-    Text = Color3.fromRGB(240, 240, 245),
-    TextDim = Color3.fromRGB(140, 140, 150),
-    SectionBg = Color3.fromRGB(22, 22, 28),
-    ElementBg = Color3.fromRGB(30, 30, 38),
-    ElementHover = Color3.fromRGB(38, 38, 48),
-    Border = Color3.fromRGB(40, 40, 50),
-    Placeholder = Color3.fromRGB(100, 100, 110)
+local Library = {
+    Flags = {},
+    Theme = {
+        Background = Color3.fromRGB(20, 15, 25), -- Panel background
+        Header = Color3.fromRGB(35, 20, 50),     -- Panel header
+        Accent = Color3.fromRGB(150, 100, 255),  -- Toggled state / accents (Purple)
+        Text = Color3.fromRGB(255, 255, 255),
+        TextDim = Color3.fromRGB(180, 180, 180),
+        Element = Color3.fromRGB(30, 25, 40),    -- Element background
+        Hover = Color3.fromRGB(40, 35, 50)       -- Element hover
+    }
 }
 
+local Utility = {}
+
 function Utility:Create(class, properties)
-    local i = Instance.new(class)
+    local instance = Instance.new(class)
     for k, v in pairs(properties) do
-        if type(k) == "number" then
-            v.Parent = i
-        else
-            i[k] = v
+        if k ~= "Parent" then
+            instance[k] = v
         end
     end
-    return i
+    if properties.Parent then
+        instance.Parent = properties.Parent
+    end
+    return instance
 end
 
-function Utility:Corner(parent, radius)
-    return Utility:Create("UICorner", {Parent = parent, CornerRadius = UDim.new(0, radius)})
-end
-
-function Utility:Stroke(parent, color, thickness)
-    return Utility:Create("UIStroke", {Parent = parent, Color = color, Thickness = thickness or 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border})
-end
-
-function Utility:Tween(obj, properties, duration, style, direction)
-    local tweenInfo = TweenInfo.new(duration or 0.2, style or Enum.EasingStyle.Quad, direction or Enum.EasingDirection.Out)
-    local tween = TweenService:Create(obj, tweenInfo, properties)
+function Utility:Tween(instance, properties, duration)
+    local info = TweenInfo.new(duration or 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local tween = TweenService:Create(instance, info, properties)
     tween:Play()
     return tween
 end
 
-if makefolder and not isfolder("PhantomUI_Configs") then
-    makefolder("PhantomUI_Configs")
+function Utility:MakeDraggable(topbar, object)
+    local dragging, dragInput, dragStart, startPos
+    
+    topbar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = object.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    
+    topbar.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            object.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
 end
 
-function Library:CreateWindow(config)
-    local Window = {
-        Name = config.Name or "phantom.cc",
-        Version = config.Version or "v1.0",
-        ToggleKey = config.ToggleKey or Enum.KeyCode.RightShift,
-        Flags = {},
-        Tabs = {},
-        ActiveTab = nil,
-        Keybinds = {},
-        FlagsCache = {
-            Toggles = {},
-            Sliders = {},
-            Colors = {},
-            Dropdowns = {}
-        },
-        UpdateFunctions = {}
-    }
-
-    Window.Flags = setmetatable({}, {
-        __index = function(self, key)
-            if Window.FlagsCache.Toggles[key] ~= nil then return Window.FlagsCache.Toggles[key] end
-            if Window.FlagsCache.Sliders[key] ~= nil then return Window.FlagsCache.Sliders[key] end
-            if Window.FlagsCache.Colors[key] ~= nil then return Window.FlagsCache.Colors[key] end
-            if Window.FlagsCache.Dropdowns[key] ~= nil then return Window.FlagsCache.Dropdowns[key] end
-            if Window.Keybinds[key] ~= nil then return {active = false, Toggled = false, Key = Window.Keybinds[key]} end
-            if string.find(key, "Color") then return {Color = Color3.fromRGB(255,255,255), Transparency = 0} end
-            if string.find(key, "Bind") or string.find(key, "Key") then return {active = false, Toggled = false} end
-            return false
-        end,
-        __newindex = function(self, key, value)
-            if Window.UpdateFunctions[key] then
-                Window.UpdateFunctions[key](value)
-            end
-        end
-    })
-
-    local existing = CoreGui:FindFirstChild(Window.Name)
-    if existing then existing:Destroy() end
-
-    Window.ScreenGui = Utility:Create("ScreenGui", {
-        Name = Window.Name,
+function Library:Window(options)
+    local winName = type(options) == "table" and (options.Name or "Phantom UI") or (type(options) == "string" and options or "Phantom UI")
+    
+    local guiName = HttpService:GenerateGUID(false)
+    local ScreenGui = Utility:Create("ScreenGui", {
+        Name = guiName,
+        ResetOnSpawn = false,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-        IgnoreGuiInset = true,
-        Parent = CoreGui
-    })
-
-    Window.Blur = Utility:Create("BlurEffect", {
-        Name = Window.Name .. "Blur",
-        Size = 12,
-        Parent = game:GetService("Lighting")
-    })
-
-    Window.Main = Utility:Create("Frame", {
-        Name = "Main",
-        Size = UDim2.new(0, 580, 0, 420),
-        Position = UDim2.new(0.5, -290, 0.5, -210),
-        BackgroundColor3 = Theme.Bg,
-        Active = true,
-        Draggable = true,
-        Parent = Window.ScreenGui,
-        Utility:Corner(nil, 6),
-        Utility:Stroke(nil, Theme.Border)
-    })
-
-    -- Shadow
-    local shadow = Utility:Create("ImageLabel", {
-        Name = "Shadow",
-        Size = UDim2.new(1, 40, 1, 40),
-        Position = UDim2.new(0, -20, 0, -20),
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://6015536815",
-        ImageColor3 = Color3.new(0, 0, 0),
-        ImageTransparency = 0.5,
-        ScaleType = Enum.ScaleType.Slice,
-        SliceCenter = Rect.new(30, 30, 30, 30),
-        ZIndex = 0,
-        Parent = Window.Main
-    })
-
-    Window.Sidebar = Utility:Create("Frame", {
-        Name = "Sidebar",
-        Size = UDim2.new(0, 150, 1, 0),
-        BackgroundColor3 = Theme.Sidebar,
-        BorderSizePixel = 0,
-        Parent = Window.Main,
-        Utility:Corner(nil, 6)
+        IgnoreGuiInset = true
     })
     
-    -- Fix corner bleed
-    Utility:Create("Frame", {
-        Size = UDim2.new(0, 6, 1, 0),
-        Position = UDim2.new(1, -6, 0, 0),
-        BackgroundColor3 = Theme.Sidebar,
-        BorderSizePixel = 0,
-        Parent = Window.Sidebar
-    })
-    Utility:Create("Frame", {
-        Size = UDim2.new(0, 1, 1, 0),
-        Position = UDim2.new(1, 0, 0, 0),
-        BackgroundColor3 = Theme.Border,
-        BorderSizePixel = 0,
-        Parent = Window.Sidebar
-    })
+    local success, err = pcall(function() ScreenGui.Parent = CoreGui end)
+    if not success then pcall(function() ScreenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui") end) end
 
-    local Title = Utility:Create("TextLabel", {
-        Name = "Title",
-        Size = UDim2.new(1, 0, 0, 50),
-        BackgroundTransparency = 1,
-        Text = string.format("  %s", Window.Name),
-        TextColor3 = Theme.Text,
-        Font = Enum.Font.GothamBold,
-        TextSize = 16,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = Window.Sidebar
-    })
-    local AccentLine = Utility:Create("Frame", {
-        Size = UDim2.new(1, 0, 0, 1),
-        Position = UDim2.new(0, 0, 1, -1),
-        BackgroundColor3 = Theme.Border,
-        BorderSizePixel = 0,
-        Parent = Title
-    })
-
-    Window.TabContainer = Utility:Create("ScrollingFrame", {
-        Name = "TabContainer",
-        Size = UDim2.new(1, -16, 1, -60),
-        Position = UDim2.new(0, 8, 0, 60),
-        BackgroundTransparency = 1,
-        ScrollBarThickness = 0,
-        CanvasSize = UDim2.new(0, 0, 0, 0),
-        Parent = Window.Sidebar,
-        Utility:Create("UIListLayout", {
-            SortOrder = Enum.SortOrder.LayoutOrder,
-            Padding = UDim.new(0, 4)
-        })
-    })
-
-    Window.ContentContainer = Utility:Create("Frame", {
-        Name = "ContentContainer",
-        Size = UDim2.new(1, -150, 1, 0),
-        Position = UDim2.new(0, 150, 0, 0),
-        BackgroundTransparency = 1,
-        Parent = Window.Main
-    })
-
-    -- Watermark
-    Window.WatermarkFrame = Utility:Create("Frame", {
-        Name = "Watermark",
-        Size = UDim2.new(0, 0, 0, 26),
-        Position = UDim2.new(0.5, 0, 0, 15),
-        AnchorPoint = Vector2.new(0.5, 0),
-        BackgroundColor3 = Theme.Topbar,
-        AutomaticSize = Enum.AutomaticSize.X,
-        Parent = Window.ScreenGui,
-        Utility:Corner(nil, 4),
-        Utility:Stroke(nil, Theme.Border)
-    })
-    local wmAccent = Utility:Create("Frame", {
-        Size = UDim2.new(1, 0, 0, 2),
-        BackgroundColor3 = Theme.Accent,
-        BorderSizePixel = 0,
-        Parent = Window.WatermarkFrame,
-        Utility:Corner(nil, 4)
-    })
-    Window.WatermarkLabel = Utility:Create("TextLabel", {
-        Size = UDim2.new(0, 0, 1, 0),
-        BackgroundTransparency = 1,
-        Text = string.format("  %s | %s | 60 FPS  ", Window.Name, Window.Version),
-        TextColor3 = Theme.Text,
-        Font = Enum.Font.GothamSemibold,
-        TextSize = 12,
-        AutomaticSize = Enum.AutomaticSize.X,
-        Parent = Window.WatermarkFrame
-    })
-
-    local frames = 0
-    local lastUpdate = tick()
-    RunService.RenderStepped:Connect(function()
-        frames = frames + 1
-        if tick() - lastUpdate >= 1 then
-            local t = Window.WatermarkBaseText or string.format("%s | %s", Window.Name, Window.Version)
-            Window.WatermarkLabel.Text = string.format("  %s | %d FPS  ", t, frames)
-            frames = 0
-            lastUpdate = tick()
-        end
-    end)
-
-    function Window:Watermark(text)
-        self.WatermarkBaseText = text .. " | " .. self.Version
-        local obj = {}
-        function obj:SetVisibility(v) self.WatermarkFrame.Visible = v end
-        return obj
-    end
-    function Window:KeybindList() return {SetVisibility=function()end} end
-    function Window:ArmorViewer() return {SetVisibility=function()end, ClearAllItems=function()end, SetTitle=function()end, Add=function()end} end
-
+    local Window = {
+        Panels = {},
+        Keybinds = {},
+        UpdateFunctions = {},
+        Toggled = true,
+        Gui = ScreenGui,
+        PanelCount = 0
+    }
+    
     UserInputService.InputBegan:Connect(function(input, processed)
-        if Window.BindingModule then
-            if input.UserInputType == Enum.UserInputType.Keyboard then
-                local bMod = Window.BindingModule
-                if input.KeyCode == Enum.KeyCode.Escape or input.KeyCode == Enum.KeyCode.Backspace then
-                    Window.Keybinds[bMod] = nil
-                else
-                    Window.Keybinds[bMod] = input.KeyCode
-                end
-                
-                if Window.UpdateFunctions[bMod .. "_BindVisual"] then
-                    Window.UpdateFunctions[bMod .. "_BindVisual"]()
-                end
-                Window.BindingModule = nil
-            end
-            return
+        if input.KeyCode == Enum.KeyCode.RightShift or input.KeyCode == Enum.KeyCode.Insert then
+            Window.Toggled = not Window.Toggled
+            ScreenGui.Enabled = Window.Toggled
         end
-
-        if processed then return end
-
-        if input.UserInputType == Enum.UserInputType.Keyboard then
-            if input.KeyCode == Window.ToggleKey then
-                Window.Main.Visible = not Window.Main.Visible
-                Window.Blur.Size = Window.Main.Visible and 12 or 0
-            else
-                for modName, key in pairs(Window.Keybinds) do
-                    if input.KeyCode == key and Window.UpdateFunctions[modName .. "_Toggle"] then
-                        Window.UpdateFunctions[modName .. "_Toggle"]()
-                    end
+        if not processed and Window.Toggled then
+            for modName, key in pairs(Window.Keybinds) do
+                if input.KeyCode == key and Window.UpdateFunctions[modName .. "_Toggle"] then
+                    Window.UpdateFunctions[modName .. "_Toggle"]()
                 end
             end
         end
     end)
 
-    -- Tab System
     function Window:CreateCategory(categoryName)
-        local Tab = { Name = categoryName }
+        local cName = type(categoryName) == "table" and categoryName.Name or categoryName
+        Window.PanelCount = Window.PanelCount + 1
         
-        local TabBtn = Utility:Create("TextButton", {
-            Name = categoryName,
-            Size = UDim2.new(1, 0, 0, 32),
-            BackgroundColor3 = Theme.Sidebar, -- Invisible by default
+        -- Layout panels horizontally
+        local xOffset = 20 + ((Window.PanelCount - 1) * 190)
+        
+        local Panel = Utility:Create("Frame", {
+            Name = cName .. "_Panel",
+            Size = UDim2.new(0, 180, 0, 30), -- Starts collapsed to header, expands later
+            Position = UDim2.new(0, xOffset, 0, 20),
+            BackgroundColor3 = Library.Theme.Background,
+            BackgroundTransparency = 0.2, -- Translucent modern look
             BorderSizePixel = 0,
-            AutoButtonColor = false,
-            Text = "   " .. categoryName,
-            TextColor3 = Theme.TextDim,
-            Font = Enum.Font.GothamSemibold,
+            Parent = ScreenGui,
+            ClipsDescendants = true
+        })
+        
+        local Header = Utility:Create("Frame", {
+            Name = "Header",
+            Size = UDim2.new(1, 0, 0, 30),
+            BackgroundColor3 = Library.Theme.Header,
+            BorderSizePixel = 0,
+            Parent = Panel
+        })
+        Utility:MakeDraggable(Header, Panel)
+        
+        local HeaderTitle = Utility:Create("TextLabel", {
+            Size = UDim2.new(1, -20, 1, 0),
+            Position = UDim2.new(0, 10, 0, 0),
+            BackgroundTransparency = 1,
+            Text = cName,
+            TextColor3 = Library.Theme.Text,
+            Font = Enum.Font.GothamBold,
             TextSize = 13,
             TextXAlignment = Enum.TextXAlignment.Left,
-            Parent = Window.TabContainer,
-            Utility:Corner(nil, 6)
+            Parent = Header
         })
-
-        local ContentFrame = Utility:Create("ScrollingFrame", {
-            Name = categoryName .. "Content",
-            Size = UDim2.new(1, 0, 1, 0),
+        
+        local ContentScroll = Utility:Create("ScrollingFrame", {
+            Size = UDim2.new(1, 0, 1, -30),
+            Position = UDim2.new(0, 0, 0, 30),
             BackgroundTransparency = 1,
-            ScrollBarThickness = 0,
-            Visible = false,
+            BorderSizePixel = 0,
+            ScrollBarThickness = 2,
+            ScrollBarImageColor3 = Library.Theme.Accent,
             CanvasSize = UDim2.new(0, 0, 0, 0),
-            Parent = Window.ContentContainer
+            Parent = Panel
         })
-
-        local LeftCol = Utility:Create("Frame", {
-            Name = "LeftCol",
-            Size = UDim2.new(0.5, -9, 1, -16),
-            Position = UDim2.new(0, 12, 0, 16),
-            BackgroundTransparency = 1,
-            Parent = ContentFrame,
-            Utility:Create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10)})
+        
+        local UIListLayout = Utility:Create("UIListLayout", {
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Padding = UDim.new(0, 0),
+            Parent = ContentScroll
         })
-
-        local RightCol = Utility:Create("Frame", {
-            Name = "RightCol",
-            Size = UDim2.new(0.5, -9, 1, -16),
-            Position = UDim2.new(0.5, 3, 0, 16),
-            BackgroundTransparency = 1,
-            Parent = ContentFrame,
-            Utility:Create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10)})
+        
+        local UIPadding = Utility:Create("UIPadding", {
+            PaddingLeft = UDim.new(0, 5),
+            PaddingRight = UDim.new(0, 5),
+            PaddingTop = UDim.new(0, 5),
+            PaddingBottom = UDim.new(0, 5),
+            Parent = ContentScroll
         })
-
+        
+        local expanded = true
+        
         local function UpdateCanvasSize()
-            local lHeight = LeftCol.UIListLayout.AbsoluteContentSize.Y
-            local rHeight = RightCol.UIListLayout.AbsoluteContentSize.Y
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, math.max(lHeight, rHeight) + 32)
-        end
-        LeftCol.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvasSize)
-        RightCol.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvasSize)
-
-        TabBtn.MouseButton1Click:Connect(function()
-            for _, t in pairs(Window.Tabs) do
-                t.Content.Visible = false
-                Utility:Tween(t.Btn, {BackgroundColor3 = Theme.Sidebar, TextColor3 = Theme.TextDim}, 0.15)
+            local contentHeight = UIListLayout.AbsoluteContentSize.Y + 10 -- account for padding
+            ContentScroll.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
+            if expanded then
+                local targetHeight = contentHeight + 30
+                if targetHeight > 500 then targetHeight = 500 end
+                Panel.Size = UDim2.new(0, 180, 0, targetHeight)
             end
-            ContentFrame.Visible = true
-            Window.ActiveTab = categoryName
-            Utility:Tween(TabBtn, {BackgroundColor3 = Theme.Accent, TextColor3 = Color3.new(1,1,1)}, 0.15)
+        end
+        UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvasSize)
+
+        Header.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton2 then
+                expanded = not expanded
+                if expanded then
+                    UpdateCanvasSize()
+                else
+                    Utility:Tween(Panel, {Size = UDim2.new(0, 180, 0, 30)})
+                end
+            end
         end)
 
-        table.insert(Window.Tabs, {Btn = TabBtn, Content = ContentFrame})
-        if #Window.Tabs == 1 then
-            ContentFrame.Visible = true
-            Window.ActiveTab = categoryName
-            TabBtn.BackgroundColor3 = Theme.Accent
-            TabBtn.TextColor3 = Color3.new(1, 1, 1)
-        end
-
-        function Tab:CreateSection(options)
-            local Section = {}
-            local secName = type(options) == "string" and options or (options.Name or "Section")
-            local side = (type(options) == "table" and options.Side) or 1
-            local targetCol = side == 1 and LeftCol or RightCol
-
-            local SecFrame = Utility:Create("Frame", {
-                Name = secName,
-                Size = UDim2.new(1, 0, 0, 0),
-                BackgroundColor3 = Theme.SectionBg,
-                AutomaticSize = Enum.AutomaticSize.Y,
-                Parent = targetCol,
-                Utility:Corner(nil, 6),Utility:Stroke(nil, Theme.Border)
+        local Category = {}
+        
+        function Category:CreateSection(options)
+            local secName = type(options) == "table" and (options.Name or "Section") or (type(options) == "string" and options or "Section")
+            
+            local SectionContainer = Utility:Create("Frame", {
+                Size = UDim2.new(1, 0, 0, 20),
+                BackgroundTransparency = 1,
+                Parent = ContentScroll
             })
-
-            local SecTitle = Utility:Create("TextLabel", {
-                Size = UDim2.new(1, -16, 0, 26),
-                Position = UDim2.new(0, 8, 0, 4),
+            
+            local SectionLabel = Utility:Create("TextLabel", {
+                Size = UDim2.new(1, 0, 1, 0),
                 BackgroundTransparency = 1,
                 Text = secName,
-                TextColor3 = Theme.Accent,
-                Font = Enum.Font.GothamBold,
-                TextSize = 12,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                Parent = SecFrame
+                TextColor3 = Library.Theme.Accent,
+                Font = Enum.Font.GothamSemibold,
+                TextSize = 11,
+                TextXAlignment = Enum.TextXAlignment.Center,
+                Parent = SectionContainer
             })
-
-            local SecContainer = Utility:Create("Frame", {
-                Size = UDim2.new(1, -16, 0, 0),
-                Position = UDim2.new(0, 8, 0, 30),
-                BackgroundTransparency = 1,
-                AutomaticSize = Enum.AutomaticSize.Y,
-                Parent = SecFrame,
-                Utility:Create("UIPadding", {PaddingBottom = UDim.new(0, 8)}),
-                Utility:Create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6)})
-            })
-
-            local function getChainingObject()
-                local Chain = {}
-                function Chain:Toggle(opts) Section:CreateToggle(opts); return Chain end
-                function Chain:CreateToggle(opts) Section:CreateToggle(opts); return Chain end
-                function Chain:Button(opts) Section:CreateButton(opts); return Chain end
-                function Chain:CreateButton(opts) Section:CreateButton(opts); return Chain end
-                function Chain:Slider(opts) Section:CreateSlider(opts); return Chain end
-                function Chain:CreateSlider(opts) Section:CreateSlider(opts); return Chain end
-                function Chain:Dropdown(opts) Section:CreateDropdown(opts); return Chain end
-                function Chain:CreateDropdown(opts) Section:CreateDropdown(opts); return Chain end
-                function Chain:Label(opts) Section:CreateLabel(opts); return Chain end
-                function Chain:CreateLabel(opts) Section:CreateLabel(opts); return Chain end
-                function Chain:Colorpicker(opts) Section:CreateColorpicker(opts); return Chain end
-                function Chain:CreateColorpicker(opts) Section:CreateColorpicker(opts); return Chain end
-                function Chain:Keybind(opts) Section:CreateKeybind(opts); return Chain end
-                function Chain:CreateKeybind(opts) Section:CreateKeybind(opts); return Chain end
-                function Chain:TextBox(opts) Section:CreateTextBox(opts); return Chain end
-                function Chain:CreateTextBox(opts) Section:CreateTextBox(opts); return Chain end
-                return Chain
-            end
-
+            
+            local Section = {}
+            
             function Section:CreateToggle(opts)
-                local flag = opts.Flag or opts.Name or "Toggle"
+                local tName = opts.Name or opts[1] or "Toggle"
+                local flag = opts.Flag or tName
                 local default = opts.Default or false
-                local cb = opts.Callback or function() end
+                local callback = opts.Callback or function() end
                 
                 Library.Flags[flag] = default
-                Window.FlagsCache.Toggles[flag] = default
-
-                local Elem = Utility:Create("Frame", {
-                    Size = UDim2.new(1, 0, 0, 24),
+                
+                local ToggleFrame = Utility:Create("TextButton", {
+                    Size = UDim2.new(1, 0, 0, 20),
                     BackgroundTransparency = 1,
-                    Parent = SecContainer
-                })
-                local Label = Utility:Create("TextLabel", {
-                    Size = UDim2.new(1, -40, 1, 0),
-                    BackgroundTransparency = 1,
-                    Text = opts.Name or flag,
-                    TextColor3 = default and Theme.Text or Theme.TextDim,
-                    Font = Enum.Font.GothamSemibold,
-                    TextSize = 12,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Parent = Elem
-                })
-                local Box = Utility:Create("TextButton", {
-                    Size = UDim2.new(0, 34, 0, 18),
-                    Position = UDim2.new(1, -34, 0.5, -9),
-                    BackgroundColor3 = default and Theme.Accent or Theme.ElementBg,
                     Text = "",
                     AutoButtonColor = false,
-                    Parent = Elem,
-                    Utility:Corner(nil, 9),
-                    Utility:Stroke(nil, Theme.Border)
+                    Parent = ContentScroll
                 })
-                local Dot = Utility:Create("Frame", {
-                    Size = UDim2.new(0, 14, 0, 14),
-                    Position = UDim2.new(0, default and 18 or 2, 0.5, -7),
-                    BackgroundColor3 = Color3.fromRGB(255,255,255),
-                    Parent = Box,
-                    Utility:Corner(nil, 7)
-                })
-
-                local function setVisual(state)
-                    Library.Flags[flag] = state
-                    Window.FlagsCache.Toggles[flag] = state
-                    Utility:Tween(Label, {TextColor3 = state and Theme.Text or Theme.TextDim}, 0.15)
-                    Utility:Tween(Box, {BackgroundColor3 = state and Theme.Accent or Theme.ElementBg}, 0.15)
-                    Utility:Tween(Dot, {Position = UDim2.new(0, state and 18 or 2, 0.5, -7)}, 0.15)
-                end
-
-                local function flip()
-                    local ns = not Window.FlagsCache.Toggles[flag]
-                    setVisual(ns)
-                    cb(ns)
-                end
-
-                Box.MouseButton1Click:Connect(flip)
                 
-                if opts.Keybind then
-                    Window.Keybinds[flag] = opts.Keybind
+                local Title = Utility:Create("TextLabel", {
+                    Size = UDim2.new(1, -5, 1, 0),
+                    Position = UDim2.new(0, 5, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text = tName,
+                    TextColor3 = default and Library.Theme.Accent or Library.Theme.TextDim,
+                    Font = Enum.Font.Gotham,
+                    TextSize = 12,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    Parent = ToggleFrame
+                })
+                
+                local function SetState(state)
+                    Library.Flags[flag] = state
+                    Utility:Tween(Title, {TextColor3 = state and Library.Theme.Accent or Library.Theme.TextDim}, 0.15)
+                    pcall(callback, state)
                 end
-
-                Window.UpdateFunctions[flag .. "_Toggle"] = flip
-                Window.UpdateFunctions[flag] = function(v) setVisual(v); cb(v) end
-
-                return getChainingObject()
+                
+                ToggleFrame.MouseButton1Click:Connect(function()
+                    SetState(not Library.Flags[flag])
+                end)
+                ToggleFrame.MouseEnter:Connect(function() Utility:Tween(ToggleFrame, {BackgroundColor3 = Library.Theme.Hover, BackgroundTransparency = 0.5}, 0.1) end)
+                ToggleFrame.MouseLeave:Connect(function() Utility:Tween(ToggleFrame, {BackgroundTransparency = 1}, 0.1) end)
+                
+                Window.UpdateFunctions[flag .. "_Toggle"] = function()
+                    SetState(not Library.Flags[flag])
+                end
+                
+                SetState(default)
+                return { Set = SetState }
             end
 
             function Section:CreateSlider(opts)
-                local flag = opts.Flag or opts.Name or "Slider"
-                local min, max = opts.Min or 0, opts.Max or 100
+                local sName = opts.Name or opts[1] or "Slider"
+                local flag = opts.Flag or sName
+                local min = opts.Min or 0
+                local max = opts.Max or 100
                 local default = opts.Default or min
-                local cb = opts.Callback or function() end
+                local callback = opts.Callback or function() end
                 
                 Library.Flags[flag] = default
-                Window.FlagsCache.Sliders[flag] = default
-
-                local Elem = Utility:Create("Frame", {
-                    Size = UDim2.new(1, 0, 0, 38),
+                
+                local SliderFrame = Utility:Create("Frame", {
+                    Size = UDim2.new(1, 0, 0, 30),
                     BackgroundTransparency = 1,
-                    Parent = SecContainer
+                    Parent = ContentScroll
                 })
-                local Label = Utility:Create("TextLabel", {
-                    Size = UDim2.new(1, -30, 0, 16),
+                
+                local Title = Utility:Create("TextLabel", {
+                    Size = UDim2.new(1, -10, 0, 15),
+                    Position = UDim2.new(0, 5, 0, 2),
                     BackgroundTransparency = 1,
-                    Text = opts.Name or flag,
-                    TextColor3 = Theme.Text,
-                    Font = Enum.Font.GothamSemibold,
-                    TextSize = 12,
+                    Text = sName,
+                    TextColor3 = Library.Theme.Text,
+                    Font = Enum.Font.Gotham,
+                    TextSize = 11,
                     TextXAlignment = Enum.TextXAlignment.Left,
-                    Parent = Elem
+                    Parent = SliderFrame
                 })
-                local ValLabel = Utility:Create("TextLabel", {
-                    Size = UDim2.new(0, 30, 0, 16),
-                    Position = UDim2.new(1, -30, 0, 0),
+                
+                local ValueLabel = Utility:Create("TextLabel", {
+                    Size = UDim2.new(1, -10, 0, 15),
+                    Position = UDim2.new(0, 5, 0, 2),
                     BackgroundTransparency = 1,
                     Text = tostring(default),
-                    TextColor3 = Theme.Accent,
-                    Font = Enum.Font.GothamBold,
-                    TextSize = 12,
+                    TextColor3 = Library.Theme.Accent,
+                    Font = Enum.Font.Gotham,
+                    TextSize = 11,
                     TextXAlignment = Enum.TextXAlignment.Right,
-                    Parent = Elem
+                    Parent = SliderFrame
                 })
                 
-                local Bg = Utility:Create("Frame", {
-                    Size = UDim2.new(1, 0, 0, 8),
-                    Position = UDim2.new(0, 0, 0, 24),
-                    BackgroundColor3 = Theme.ElementBg,
-                    Parent = Elem,
-                    Utility:Corner(nil, 4),Utility:Stroke(nil, Theme.Border)
-                })
-                local Fill = Utility:Create("Frame", {
-                    Size = UDim2.new((default - min)/(max - min), 0, 1, 0),
-                    BackgroundColor3 = Theme.Accent,
-                    Parent = Bg,
-                    Utility:Corner(nil, 4)
-                })
-                local Trigger = Utility:Create("TextButton", {
-                    Size = UDim2.new(1, 0, 1, 0),
-                    BackgroundTransparency = 1,
+                local BarBG = Utility:Create("TextButton", {
+                    Size = UDim2.new(1, -10, 0, 4),
+                    Position = UDim2.new(0, 5, 0, 20),
+                    BackgroundColor3 = Library.Theme.Element,
+                    BorderSizePixel = 0,
                     Text = "",
-                    Parent = Bg
+                    AutoButtonColor = false,
+                    Parent = SliderFrame
                 })
-
-                local dragging = false
-                local function update(input)
-                    local cl = math.clamp((input.Position.X - Bg.AbsolutePosition.X) / Bg.AbsoluteSize.X, 0, 1)
-                    local v = math.floor(min + ((max - min) * cl))
-                    Library.Flags[flag] = v
-                    Window.FlagsCache.Sliders[flag] = v
-                    ValLabel.Text = tostring(v)
-                    Utility:Tween(Fill, {Size = UDim2.new(cl, 0, 1, 0)}, 0.05)
-                    cb(v)
+                
+                local BarFill = Utility:Create("Frame", {
+                    Size = UDim2.new((default - min) / (max - min), 0, 1, 0),
+                    BackgroundColor3 = Library.Theme.Accent,
+                    BorderSizePixel = 0,
+                    Parent = BarBG
+                })
+                
+                local function SetValue(val)
+                    val = math.clamp(math.round(val * 10) / 10, min, max)
+                    Library.Flags[flag] = val
+                    ValueLabel.Text = tostring(val)
+                    Utility:Tween(BarFill, {Size = UDim2.new((val - min) / (max - min), 0, 1, 0)}, 0.1)
+                    pcall(callback, val)
                 end
-
-                Trigger.InputBegan:Connect(function(inp)
-                    if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-                        dragging = true; update(inp)
+                
+                local dragging = false
+                BarBG.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        dragging = true
+                        local pct = math.clamp((input.Position.X - BarBG.AbsolutePosition.X) / BarBG.AbsoluteSize.X, 0, 1)
+                        SetValue(min + (max - min) * pct)
                     end
                 end)
-                Trigger.InputEnded:Connect(function(inp)
-                    if inp.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
-                end)
-                UserInputService.InputChanged:Connect(function(inp)
-                    if dragging and inp.UserInputType == Enum.UserInputType.MouseMovement then update(inp) end
-                end)
-
-                Window.UpdateFunctions[flag] = function(v)
-                    v = math.clamp(v, min, max)
-                    Library.Flags[flag] = v
-                    Window.FlagsCache.Sliders[flag] = v
-                    ValLabel.Text = tostring(v)
-                    Fill.Size = UDim2.new((v - min)/(max - min), 0, 1, 0)
-                    cb(v)
-                end
-
-                return getChainingObject()
-            end
-
-            function Section:CreateColorpicker(opts)
-                local flag = opts.Flag or opts.Name or "Colorpicker"
-                local defColor = type(opts.Default) == "userdata" and opts.Default or Color3.fromRGB(255,100,100)
-                Library.Flags[flag] = {Color = defColor, Transparency = 0}
-                Window.FlagsCache.Colors[flag] = {Color = defColor, Transparency = 0}
-
-                local Elem = Utility:Create("Frame", {
-                    Size = UDim2.new(1, 0, 0, 24),
-                    BackgroundTransparency = 1,
-                    Parent = SecContainer
-                })
-                local Label = Utility:Create("TextLabel", {
-                    Size = UDim2.new(1, -30, 1, 0),
-                    BackgroundTransparency = 1,
-                    Text = opts.Name or flag,
-                    TextColor3 = Theme.Text,
-                    Font = Enum.Font.GothamSemibold,
-                    TextSize = 12,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Parent = Elem
-                })
-                local Box = Utility:Create("TextButton", {
-                    Size = UDim2.new(0, 30, 0, 14),
-                    Position = UDim2.new(1, -30, 0.5, -7),
-                    BackgroundColor3 = defColor,
-                    Text = "",
-                    Parent = Elem,
-                    Utility:Corner(nil, 4), Utility:Stroke(nil, Theme.Border)
-                })
-
-                -- Mini pseudo-picker logic. Just cycles Red -> Green -> Blue for now if clicked to satisfy script needs interactively securely
-                Box.MouseButton1Click:Connect(function()
-                    local c = Window.FlagsCache.Colors[flag].Color
-                    local newC = Color3.fromRGB(math.random(50,255), math.random(50,255), math.random(50,255))
-                    Library.Flags[flag].Color = newC
-                    Window.FlagsCache.Colors[flag].Color = newC
-                    Box.BackgroundColor3 = newC
+                
+                UserInputService.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
                 end)
                 
-                return getChainingObject()
+                UserInputService.InputChanged:Connect(function(input)
+                    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                        local pct = math.clamp((input.Position.X - BarBG.AbsolutePosition.X) / BarBG.AbsoluteSize.X, 0, 1)
+                        SetValue(min + (max - min) * pct)
+                    end
+                end)
+                
+                SetValue(default)
+                return { Set = SetValue }
+            end
+            
+            function Section:CreateColorpicker(opts)
+                local cpName = opts.Name or opts[1] or "Colorpicker"
+                local flag = opts.Flag or cpName
+                local default = opts.Default or Color3.new(1,1,1)
+                local callback = opts.Callback or function() end
+                
+                Library.Flags[flag] = default
+                
+                local CPFrame = Utility:Create("Frame", {
+                    Size = UDim2.new(1, 0, 0, 20),
+                    BackgroundTransparency = 1,
+                    Parent = ContentScroll
+                })
+                
+                local Title = Utility:Create("TextLabel", {
+                    Size = UDim2.new(1, -30, 1, 0),
+                    Position = UDim2.new(0, 5, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text = cpName,
+                    TextColor3 = Library.Theme.TextDim,
+                    Font = Enum.Font.Gotham,
+                    TextSize = 12,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    Parent = CPFrame
+                })
+                
+                local ColorDisplay = Utility:Create("Frame", {
+                    Size = UDim2.new(0, 12, 0, 12),
+                    Position = UDim2.new(1, -17, 0.5, -6),
+                    BackgroundColor3 = default,
+                    BorderSizePixel = 0,
+                    Parent = CPFrame
+                })
+                
+                local function SetCol(col)
+                    Library.Flags[flag] = col
+                    ColorDisplay.BackgroundColor3 = col
+                    pcall(callback, col)
+                end
+                
+                return { Set = SetCol }
+            end
+            
+            function Section:CreateDropdown(opts)
+                local tName = opts.Name or opts[1] or "Dropdown"
+                local flag = opts.Flag or tName
+                local list = opts.List or {}
+                local callback = opts.Callback or function() end
+                
+                Library.Flags[flag] = list[1]
+                
+                local DDFrame = Utility:Create("Frame", {
+                    Size = UDim2.new(1, 0, 0, 36),
+                    BackgroundTransparency = 1,
+                    Parent = ContentScroll
+                })
+                
+                local Title = Utility:Create("TextLabel", {
+                    Size = UDim2.new(1, -10, 0, 16),
+                    Position = UDim2.new(0, 5, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text = tName,
+                    TextColor3 = Library.Theme.Text,
+                    Font = Enum.Font.Gotham,
+                    TextSize = 11,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    Parent = DDFrame
+                })
+                
+                local DisplayBtn = Utility:Create("TextButton", {
+                    Size = UDim2.new(1, -10, 0, 16),
+                    Position = UDim2.new(0, 5, 0, 16),
+                    BackgroundColor3 = Library.Theme.Element,
+                    BorderSizePixel = 0,
+                    Text = tostring(list[1] or "None"),
+                    TextColor3 = Library.Theme.Accent,
+                    Font = Enum.Font.Gotham,
+                    TextSize = 11,
+                    Parent = DDFrame
+                })
+                
+                DisplayBtn.MouseButton1Click:Connect(function()
+                    local currentIdx = table.find(list, Library.Flags[flag]) or 0
+                    local nextIdx = currentIdx + 1
+                    if nextIdx > #list then nextIdx = 1 end
+                    
+                    local selected = list[nextIdx]
+                    Library.Flags[flag] = selected
+                    DisplayBtn.Text = tostring(selected)
+                    pcall(callback, selected)
+                end)
+                
+                return {}
             end
 
             function Section:CreateKeybind(opts)
-                local flag = opts.Flag or opts.Name or "Keybind"
-                Library.Flags[flag] = opts.Default
-                Window.Keybinds[flag] = opts.Default
-
-                local Elem = Utility:Create("Frame", {
-                    Size = UDim2.new(1, 0, 0, 24),
+                local kName = opts.Name or opts[1] or "Keybind"
+                local flag = opts.Flag or kName
+                local default = opts.Default or Enum.KeyCode.Unknown
+                local callback = opts.Callback or function() end
+                
+                Library.Flags[flag] = default
+                Window.Keybinds[kName] = default
+                
+                local KFrame = Utility:Create("Frame", {
+                    Size = UDim2.new(1, 0, 0, 20),
                     BackgroundTransparency = 1,
-                    Parent = SecContainer
+                    Parent = ContentScroll
                 })
-                local Label = Utility:Create("TextLabel", {
-                    Size = UDim2.new(1, -60, 1, 0),
+                
+                local Title = Utility:Create("TextLabel", {
+                    Size = UDim2.new(1, -50, 1, 0),
+                    Position = UDim2.new(0, 5, 0, 0),
                     BackgroundTransparency = 1,
-                    Text = opts.Name or flag,
-                    TextColor3 = Theme.Text,
-                    Font = Enum.Font.GothamSemibold,
-                    TextSize = 12,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Parent = Elem
-                })
-                local Box = Utility:Create("TextButton", {
-                    Size = UDim2.new(0, 50, 0, 18),
-                    Position = UDim2.new(1, -50, 0.5, -9),
-                    BackgroundColor3 = Theme.ElementBg,
-                    Text = opts.Default and opts.Default.Name or "None",
-                    TextColor3 = Theme.TextDim,
-                    Font = Enum.Font.GothamBold,
-                    TextSize = 11,
-                    Parent = Elem,
-                    Utility:Corner(nil, 4), Utility:Stroke(nil, Theme.Border)
-                })
-
-                Box.MouseButton1Click:Connect(function()
-                    Box.Text = "..."
-                    Box.TextColor3 = Theme.Accent
-                    Window.BindingModule = flag
-                end)
-
-                Window.UpdateFunctions[flag .. "_BindVisual"] = function()
-                    local key = Window.Keybinds[flag]
-                    Box.Text = key and key.Name or "None"
-                    Box.TextColor3 = Theme.TextDim
-                end
-
-                return getChainingObject()
-            end
-
-            function Section:CreateButton(opts)
-                local Elem = Utility:Create("TextButton", {
-                    Size = UDim2.new(1, 0, 0, 26),
-                    BackgroundColor3 = Theme.ElementBg,
-                    Text = opts.Name or "Button",
-                    TextColor3 = Theme.Text,
-                    Font = Enum.Font.GothamBold,
-                    TextSize = 12,
-                    AutoButtonColor = false,
-                    Parent = SecContainer,
-                    Utility:Corner(nil, 4), Utility:Stroke(nil, Theme.Border)
-                })
-                Elem.MouseButton1Click:Connect(opts.Callback or function() end)
-                Elem.MouseEnter:Connect(function() Utility:Tween(Elem, {BackgroundColor3 = Theme.ElementHover}, 0.15) end)
-                Elem.MouseLeave:Connect(function() Utility:Tween(Elem, {BackgroundColor3 = Theme.ElementBg}, 0.15) end)
-                return getChainingObject()
-            end
-
-            function Section:CreateLabel(opts)
-                Utility:Create("TextLabel", {
-                    Size = UDim2.new(1, 0, 0, 18),
-                    BackgroundTransparency = 1,
-                    Text = type(opts) == "string" and opts or opts.Name,
-                    TextColor3 = Theme.TextDim,
+                    Text = kName,
+                    TextColor3 = Library.Theme.TextDim,
                     Font = Enum.Font.Gotham,
                     TextSize = 12,
                     TextXAlignment = Enum.TextXAlignment.Left,
-                    Parent = SecContainer
+                    Parent = KFrame
                 })
-                return getChainingObject()
+                
+                local BindBtn = Utility:Create("TextButton", {
+                    Size = UDim2.new(0, 40, 0, 14),
+                    Position = UDim2.new(1, -45, 0.5, -7),
+                    BackgroundColor3 = Library.Theme.Element,
+                    BorderSizePixel = 0,
+                    Text = (default == Enum.KeyCode.Unknown and "None" or default.Name),
+                    TextColor3 = Library.Theme.Accent,
+                    Font = Enum.Font.Gotham,
+                    TextSize = 10,
+                    Parent = KFrame
+                })
+                
+                local binding = false
+                BindBtn.MouseButton1Click:Connect(function()
+                    binding = true
+                    BindBtn.Text = "..."
+                end)
+                
+                UserInputService.InputBegan:Connect(function(input)
+                    if binding and input.UserInputType == Enum.UserInputType.Keyboard then
+                        local key = input.KeyCode
+                        if key == Enum.KeyCode.Escape then
+                            key = Enum.KeyCode.Unknown
+                        end
+                        Library.Flags[flag] = key
+                        Window.Keybinds[kName] = key
+                        BindBtn.Text = (key == Enum.KeyCode.Unknown and "None" or key.Name)
+                        binding = false
+                        pcall(callback, key)
+                    end
+                end)
+                
+                return {}
             end
-
-            function Section:CreateDropdown(opts)
-                -- Simple elegant stub for Dropdown logic
-                local flag = opts.Flag or opts.Name or "Dropdown"
-                Library.Flags[flag] = opts.Default or ""
-                Window.FlagsCache.Dropdowns[flag] = opts.Default or ""
-                Section:CreateLabel({Name = (opts.Name or flag) .. " (Dropdown)"})
-                return getChainingObject()
-            end
-
+            
             function Section:CreateTextBox(opts)
-                local flag = opts.Flag or opts.Name or "TextBox"
-                Library.Flags[flag] = opts.Default or ""
-
-                local Elem = Utility:Create("Frame", {
-                    Size = UDim2.new(1, 0, 0, 48),
+                local tbName = opts.Name or opts[1] or "TextBox"
+                local flag = opts.Flag or tbName
+                local default = opts.Default or ""
+                local callback = opts.Callback or function() end
+                
+                Library.Flags[flag] = default
+                
+                local TBFrame = Utility:Create("Frame", {
+                    Size = UDim2.new(1, 0, 0, 36),
                     BackgroundTransparency = 1,
-                    Parent = SecContainer
+                    Parent = ContentScroll
                 })
-                Utility:Create("TextLabel", {
-                    Size = UDim2.new(1, 0, 0, 16),
+                
+                local Title = Utility:Create("TextLabel", {
+                    Size = UDim2.new(1, -10, 0, 16),
+                    Position = UDim2.new(0, 5, 0, 0),
                     BackgroundTransparency = 1,
-                    Text = opts.Name or flag,
-                    TextColor3 = Theme.Text,
-                    Font = Enum.Font.GothamSemibold,
-                    TextSize = 12,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Parent = Elem
-                })
-                local BoxBg = Utility:Create("Frame", {
-                    Size = UDim2.new(1, 0, 0, 24),
-                    Position = UDim2.new(0, 0, 0, 20),
-                    BackgroundColor3 = Theme.ElementBg,
-                    Parent = Elem,
-                    Utility:Corner(nil, 4), Utility:Stroke(nil, Theme.Border)
-                })
-                local Box = Utility:Create("TextBox", {
-                    Size = UDim2.new(1, -12, 1, 0),
-                    Position = UDim2.new(0, 6, 0, 0),
-                    BackgroundTransparency = 1,
-                    Text = opts.Default or "",
-                    PlaceholderText = "...",
-                    TextColor3 = Theme.Text,
+                    Text = tbName,
+                    TextColor3 = Library.Theme.TextDim,
                     Font = Enum.Font.Gotham,
-                    TextSize = 12,
+                    TextSize = 11,
                     TextXAlignment = Enum.TextXAlignment.Left,
-                    ClearTextOnFocus = false,
-                    Parent = BoxBg
+                    Parent = TBFrame
                 })
-                Box.FocusLost:Connect(function()
-                    Library.Flags[flag] = Box.Text
-                    if opts.Callback then opts.Callback(Box.Text) end
+                
+                local TextBoxBlock = Utility:Create("TextBox", {
+                    Size = UDim2.new(1, -10, 0, 16),
+                    Position = UDim2.new(0, 5, 0, 16),
+                    BackgroundColor3 = Library.Theme.Element,
+                    BorderSizePixel = 0,
+                    Text = default,
+                    PlaceholderText = "...",
+                    TextColor3 = Library.Theme.Text,
+                    Font = Enum.Font.Gotham,
+                    TextSize = 11,
+                    Parent = TBFrame
+                })
+                
+                TextBoxBlock.FocusLost:Connect(function()
+                    Library.Flags[flag] = TextBoxBlock.Text
+                    pcall(callback, TextBoxBlock.Text)
                 end)
-                Window.UpdateFunctions[flag] = function(v)
-                    Box.Text = tostring(v)
-                    Library.Flags[flag] = v
-                end
-                return getChainingObject()
+                
+                return {}
             end
-
+            
+            function Section:CreateButton(opts)
+                local btnName = opts.Name or opts[1] or "Button"
+                local callback = opts.Callback or function() end
+                
+                local Wrapper = Utility:Create("Frame", {
+                    Size = UDim2.new(1, 0, 0, 24),
+                    BackgroundTransparency = 1,
+                    Parent = ContentScroll
+                })
+                
+                local BtnFrame = Utility:Create("TextButton", {
+                    Size = UDim2.new(1, -10, 0, 20),
+                    Position = UDim2.new(0, 5, 0, 2),
+                    BackgroundColor3 = Library.Theme.Element,
+                    BorderSizePixel = 0,
+                    Text = btnName,
+                    TextColor3 = Library.Theme.Text,
+                    Font = Enum.Font.Gotham,
+                    TextSize = 11,
+                    Parent = Wrapper
+                })
+                
+                BtnFrame.MouseButton1Click:Connect(callback)
+            end
+            
+            -- Aliases
+            Section.Toggle = Section.CreateToggle
+            Section.Slider = Section.CreateSlider
+            Section.Colorpicker = Section.CreateColorpicker
+            Section.Dropdown = Section.CreateDropdown
+            Section.Keybind = Section.CreateKeybind
+            Section.TextBox = Section.CreateTextBox
+            Section.Button = Section.CreateButton
+            
             return Section
         end
         
-        -- Aliases for Tab = Category backwards compatibility with old script without explicit Sections
-        Tab.Section = Tab.CreateSection
+        -- Aliases
+        Category.Section = Category.CreateSection
 
-        -- Create a persistent "Miscellaneous" section for detached elements to fall into
-        local function getMisc()
-            if not Tab.MiscSection then Tab.MiscSection = Tab:CreateSection({Name="Miscellaneous"}) end
-            return Tab.MiscSection
-        end
-
-        Tab.Toggle = function(...) return getMisc():Toggle(...) end
-        Tab.CreateToggle = function(...) return getMisc():CreateToggle(...) end
-        Tab.Button = function(...) return getMisc():Button(...) end
-        Tab.CreateButton = function(...) return getMisc():CreateButton(...) end
-        Tab.Slider = function(...) return getMisc():Slider(...) end
-        Tab.CreateSlider = function(...) return getMisc():CreateSlider(...) end
-        Tab.Dropdown = function(...) return getMisc():Dropdown(...) end
-        Tab.CreateDropdown = function(...) return getMisc():CreateDropdown(...) end
-        Tab.Label = function(...) return getMisc():Label(...) end
-        Tab.CreateLabel = function(...) return getMisc():CreateLabel(...) end
-        Tab.Colorpicker = function(...) return getMisc():Colorpicker(...) end
-        Tab.CreateColorpicker = function(...) return getMisc():CreateColorpicker(...) end
-        Tab.Keybind = function(...) return getMisc():Keybind(...) end
-        Tab.CreateKeybind = function(...) return getMisc():CreateKeybind(...) end
-        Tab.TextBox = function(...) return getMisc():TextBox(...) end
-        Tab.CreateTextBox = function(...) return getMisc():CreateTextBox(...) end
-
-        return Tab
+        return Category
     end
-
-    Window.Page = Window.CreateCategory
-
-    -- Build a settings tab as requested
+    
     function Window:BuildSettingsTab()
-        local sTab = self:CreateCategory("Settings")
-        local sSec = sTab:CreateSection({Name="Configuration", Side=1})
-        
-        local folderPath = tostring(Window.Name or "phantom_configs"):gsub("[%c%s%p]", "_")
-        if makefolder and not isfolder(folderPath) then
-            makefolder(folderPath)
-        end
-        
-        sSec:CreateTextBox({Name = "Config Name", Flag = "_ConfigName_", Default = "default"})
-        
-        sSec:CreateButton({Name = "Save Config", Callback=function()
-            if not writefile then return end
-            local cfgName = (Library.Flags["_ConfigName_"] or "default") .. ".txt"
-            
-            local toSave = {}
-            for k,v in pairs(Library.Flags) do
-                if type(v) == "table" and v.Color then
-                    toSave[k] = {Color = {v.Color.R, v.Color.G, v.Color.B}, Transparency = v.Transparency}
-                elseif type(v) == "userdata" and typeof(v) == "EnumItem" then
-                    toSave[k] = {EnumName = tostring(v)}
-                elseif type(v) ~= "function" and type(v) ~= "thread" and type(v) ~= "userdata" then
-                    toSave[k] = v
-                end
-            end
-            
-            local success, json = pcall(function() return HttpService:JSONEncode(toSave) end)
-            if success then
-                writefile(folderPath .. "\\\\" .. cfgName, json)
-            end
-        end})
-        
-        sSec:CreateButton({Name = "Load Config", Callback=function()
-            if not readfile then return end
-            local cfgName = (Library.Flags["_ConfigName_"] or "default") .. ".txt"
-            local path = folderPath .. "\\\\" .. cfgName
-            if isfile and isfile(path) then
-                local success, data = pcall(function() return HttpService:JSONDecode(readfile(path)) end)
-                if success and type(data) == "table" then
-                    for k,v in pairs(data) do
-                        if type(v) == "table" and v.Color then
-                            if Window.UpdateFunctions[k] then
-                                Window.UpdateFunctions[k]({Color = Color3.new(v.Color[1], v.Color[2], v.Color[3]), Transparency = v.Transparency})
-                            end
-                        elseif type(v) == "table" and v.EnumName then
-                            -- Enum placeholder
-                        else
-                            if Window.UpdateFunctions[k] then
-                                Window.UpdateFunctions[k](v)
-                            end
-                        end
-                    end
-                end
-            end
-        end})
+         local settingsCat = Window:CreateCategory("Settings")
+         local main = settingsCat:CreateSection("Config")
+         local cfgName = "default_config"
+         
+         main:CreateTextBox({
+             Name = "Config Name",
+             Flag = "ConfigName",
+             Default = "default_config",
+             Callback = function(v) cfgName = v end
+         })
+         
+         main:CreateButton({
+             Name = "Save Config",
+             Callback = function()
+                 if not isfolder("PhantomConfigs") then makefolder("PhantomConfigs") end
+                 
+                 local dataToSave = {}
+                 for name, val in pairs(Library.Flags) do
+                     dataToSave[name] = val
+                 end
+                 
+                 local encoded = HttpService:JSONEncode(dataToSave)
+                 writefile("PhantomConfigs/" .. cfgName .. ".txt", encoded)
+             end
+         })
+         
+         main:CreateButton({
+             Name = "Load Config",
+             Callback = function()
+                 if isfile("PhantomConfigs/" .. cfgName .. ".txt") then
+                     local decoded = HttpService:JSONDecode(readfile("PhantomConfigs/" .. cfgName .. ".txt"))
+                     for name, val in pairs(decoded) do
+                         if Library.Flags[name] ~= nil then
+                             Library.Flags[name] = val
+                             if Window.UpdateFunctions[name .. "_Toggle"] then
+                                 Window.UpdateFunctions[name .. "_Toggle"]()
+                             end
+                         end
+                     end
+                 end
+             end
+         })
     end
+    
+    function Window:Watermark(text) return { SetText = function() end } end
+    function Window:KeybindList() return { SetVisibility = function() end, ClearAllItems = function() end, Add = function() end } end
+    function Window:ArmorViewer() return { SetVisibility = function() end, ClearAllItems = function() end, SetTitle = function() end, Add = function() end } end
 
-    Window:BuildSettingsTab()
+    -- Aliases
+    Window.Category = Window.CreateCategory
+    Window.Page = Window.CreateCategory
 
     return Window
 end
 
-Library.Window = Library.CreateWindow
-
-function Library:CreateSettingsPage(win, binds, wm)
-    return win:BuildSettingsTab()
-end
+Library.CreateWindow = Library.Window
+function Library:CreateSettingsPage() end
 
 return Library
