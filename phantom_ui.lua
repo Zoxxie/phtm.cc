@@ -435,6 +435,27 @@ function PhantomUI:CreateWindow(config)
     function Window:CreateCategory(categoryName)
         local Category = { Name = categoryName }
 
+        local function getChainingObject()
+            local Chain = {}
+            function Chain:Toggle(opts) Category:CreateToggle(opts); return Chain end
+            function Chain:CreateToggle(opts) Category:CreateToggle(opts); return Chain end
+            function Chain:Button(opts) Category:CreateButton(opts); return Chain end
+            function Chain:CreateButton(opts) Category:CreateButton(opts); return Chain end
+            function Chain:Slider(opts) Category:CreateSlider(opts); return Chain end
+            function Chain:CreateSlider(opts) Category:CreateSlider(opts); return Chain end
+            function Chain:Dropdown(opts) Category:CreateDropdown(opts); return Chain end
+            function Chain:CreateDropdown(opts) Category:CreateDropdown(opts); return Chain end
+            function Chain:Label(opts) Category:CreateLabel(opts); return Chain end
+            function Chain:CreateLabel(opts) Category:CreateLabel(opts); return Chain end
+            function Chain:Colorpicker(opts) Category:CreateColorpicker(opts); return Chain end
+            function Chain:CreateColorpicker(opts) Category:CreateColorpicker(opts); return Chain end
+            function Chain:Keybind(opts) Category:CreateKeybind(opts); return Chain end
+            function Chain:CreateKeybind(opts) Category:CreateKeybind(opts); return Chain end
+            function Chain:Section(opts) Category:CreateSection(opts); return Chain end
+            function Chain:CreateSection(opts) Category:CreateSection(opts); return Chain end
+            return Chain
+        end
+
         local startX = 20
         local panelWidth = 160
         local spacing = 15
@@ -733,28 +754,6 @@ function PhantomUI:CreateWindow(config)
                 end
             end)
             return getChainingObject()
-        end
-
-        
-        local function getChainingObject()
-            local Chain = {}
-            function Chain:Toggle(opts) Category:CreateToggle(opts); return Chain end
-            function Chain:CreateToggle(opts) Category:CreateToggle(opts); return Chain end
-            function Chain:Button(opts) Category:CreateButton(opts); return Chain end
-            function Chain:CreateButton(opts) Category:CreateButton(opts); return Chain end
-            function Chain:Slider(opts) Category:CreateSlider(opts); return Chain end
-            function Chain:CreateSlider(opts) Category:CreateSlider(opts); return Chain end
-            function Chain:Dropdown(opts) Category:CreateDropdown(opts); return Chain end
-            function Chain:CreateDropdown(opts) Category:CreateDropdown(opts); return Chain end
-            function Chain:Label(opts) Category:CreateLabel(opts); return Chain end
-            function Chain:CreateLabel(opts) Category:CreateLabel(opts); return Chain end
-            function Chain:Colorpicker(opts) Category:CreateColorpicker(opts); return Chain end
-            function Chain:CreateColorpicker(opts) Category:CreateColorpicker(opts); return Chain end
-            function Chain:Keybind(opts) Category:CreateKeybind(opts); return Chain end
-            function Chain:CreateKeybind(opts) Category:CreateKeybind(opts); return Chain end
-            function Chain:Section(opts) Category:CreateSection(opts); return Chain end
-            function Chain:CreateSection(opts) Category:CreateSection(opts); return Chain end
-            return Chain
         end
 
         function Category:CreateDropdown(options)
