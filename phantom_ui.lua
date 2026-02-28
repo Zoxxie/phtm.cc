@@ -60,6 +60,23 @@ function PhantomUI:CreateWindow(config)
     Window.Container.Visible = false -- Hide until loaded
     Window.Container.Parent = Window.ScreenGui
 
+    Window.Flags = setmetatable({}, {
+        __index = function(self, key)
+            if Window.ActiveModules[key] ~= nil then return Window.ActiveModules[key] end
+            if Window.SliderValues[key] ~= nil then return Window.SliderValues[key] end
+            if string.find(key, "Color") then return {Color = Color3.fromRGB(255,255,255), Transparency = 0} end
+            if string.find(key, "Bind") or string.find(key, "Key") then return {active = false, Toggled = false} end
+            -- maybe values are keybinds
+            if Window.Keybinds[key] ~= nil then return {active = false, Toggled = false, Key = Window.Keybinds[key]} end
+            return false
+        end,
+        __newindex = function(self, key, value)
+            if type(value) == "boolean" then Window.ActiveModules[key] = value
+            elseif type(value) == "number" then Window.SliderValues[key] = value end
+        end
+    })
+
+
     Window.Blur = Instance.new("BlurEffect")
     Window.Blur.Name = Window.Name .. "Blur"
     Window.Blur.Size = 0 -- Start without blur during loading
@@ -490,7 +507,7 @@ function PhantomUI:CreateWindow(config)
         padding.Parent = moduleContainer
         
         function Category:CreateToggle(options)
-            local modName = options.Name or "Unknown"
+            local modName = options.Flag or options.Name or "Unknown"
             local defaultKeybind = options.Keybind
             local callback = options.Callback or function() end
             
@@ -585,10 +602,11 @@ function PhantomUI:CreateWindow(config)
                     TweenService:Create(modLabel, TweenInfo.new(0.15), {TextColor3 = Theme.DimText}):Play()
                 end
             end)
+        return getChainingObject()
         end
 
         function Category:CreateButton(options)
-            local modName = options.Name or "Button"
+            local modName = options.Flag or options.Name or "Button"
             local callback = options.Callback or function() end
 
             local modBtn = Instance.new("TextButton")
@@ -626,10 +644,11 @@ function PhantomUI:CreateWindow(config)
             modBtn.MouseButton1Up:Connect(function()
                 TweenService:Create(modBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}):Play()
             end)
+        return getChainingObject()
         end
 
         function Category:CreateSlider(options)
-            local modName = options.Name or "Slider"
+            local modName = options.Flag or options.Name or "Slider"
             local min = options.Min or 0
             local max = options.Max or 100
             local default = options.Default or min
@@ -713,7 +732,116 @@ function PhantomUI:CreateWindow(config)
                     updateSlider(input)
                 end
             end)
+            return getChainingObject()
         end
+
+        
+        local function getChainingObject()
+            local Chain = {}
+            function Chain:Toggle(opts) Category:CreateToggle(opts); return Chain end
+            function Chain:CreateToggle(opts) Category:CreateToggle(opts); return Chain end
+            function Chain:Button(opts) Category:CreateButton(opts); return Chain end
+            function Chain:CreateButton(opts) Category:CreateButton(opts); return Chain end
+            function Chain:Slider(opts) Category:CreateSlider(opts); return Chain end
+            function Chain:CreateSlider(opts) Category:CreateSlider(opts); return Chain end
+            function Chain:Dropdown(opts) Category:CreateDropdown(opts); return Chain end
+            function Chain:CreateDropdown(opts) Category:CreateDropdown(opts); return Chain end
+            function Chain:Label(opts) Category:CreateLabel(opts); return Chain end
+            function Chain:CreateLabel(opts) Category:CreateLabel(opts); return Chain end
+            function Chain:Colorpicker(opts) Category:CreateColorpicker(opts); return Chain end
+            function Chain:CreateColorpicker(opts) Category:CreateColorpicker(opts); return Chain end
+            function Chain:Keybind(opts) Category:CreateKeybind(opts); return Chain end
+            function Chain:CreateKeybind(opts) Category:CreateKeybind(opts); return Chain end
+            function Chain:Section(opts) Category:CreateSection(opts); return Chain end
+            function Chain:CreateSection(opts) Category:CreateSection(opts); return Chain end
+            return Chain
+        end
+
+        function Category:CreateDropdown(options)
+            local modName = options.Flag or options.Name or "Dropdown"
+            local modLabel = Instance.new("TextLabel")
+            modLabel.Size = UDim2.new(1, -20, 0, 20)
+            modLabel.Position = UDim2.new(0, 10, 0, 0)
+            modLabel.BackgroundTransparency = 1
+            modLabel.Text = modName .. " (Dropdown)"
+            modLabel.TextColor3 = Theme.DimText
+            modLabel.Font = Enum.Font.GothamSemibold
+            modLabel.TextSize = 13
+            modLabel.TextXAlignment = Enum.TextXAlignment.Left
+            modLabel.Parent = moduleContainer
+            return getChainingObject()
+        end
+
+        function Category:CreateLabel(options)
+            local modName = type(options) == "string" and options or (options.Name or "Label")
+            local modLabel = Instance.new("TextLabel")
+            modLabel.Size = UDim2.new(1, -20, 0, 20)
+            modLabel.Position = UDim2.new(0, 10, 0, 0)
+            modLabel.BackgroundTransparency = 1
+            modLabel.Text = modName
+            modLabel.TextColor3 = Theme.Text
+            modLabel.Font = Enum.Font.Gotham
+            modLabel.TextSize = 12
+            modLabel.TextWrapped = true
+            modLabel.TextXAlignment = Enum.TextXAlignment.Left
+            modLabel.Parent = moduleContainer
+            return getChainingObject()
+        end
+
+        function Category:CreateColorpicker(options)
+            local modName = options.Flag or options.Name or "Colorpicker"
+            local modLabel = Instance.new("TextLabel")
+            modLabel.Size = UDim2.new(1, -20, 0, 20)
+            modLabel.Position = UDim2.new(0, 10, 0, 0)
+            modLabel.BackgroundTransparency = 1
+            modLabel.Text = modName .. " [Color]"
+            modLabel.TextColor3 = type(options.Default) == "userdata" and options.Default or Theme.DimText
+            modLabel.Font = Enum.Font.GothamSemibold
+            modLabel.TextSize = 13
+            modLabel.TextXAlignment = Enum.TextXAlignment.Left
+            modLabel.Parent = moduleContainer
+            return getChainingObject()
+        end
+
+        function Category:CreateKeybind(options)
+            local modName = options.Flag or options.Name or "Keybind"
+            local modLabel = Instance.new("TextLabel")
+            modLabel.Size = UDim2.new(1, -20, 0, 20)
+            modLabel.Position = UDim2.new(0, 10, 0, 0)
+            modLabel.BackgroundTransparency = 1
+            modLabel.Text = modName .. " [Bind]"
+            modLabel.TextColor3 = Theme.DimText
+            modLabel.Font = Enum.Font.GothamSemibold
+            modLabel.TextSize = 13
+            modLabel.TextXAlignment = Enum.TextXAlignment.Left
+            modLabel.Parent = moduleContainer
+            return getChainingObject()
+        end
+
+        function Category:CreateSection(options)
+            local secName = type(options) == "string" and options or (options.Name or "Section")
+            local secLabel = Instance.new("TextLabel")
+            secLabel.Size = UDim2.new(1, 0, 0, 25)
+            secLabel.Position = UDim2.new(0, 0, 0, 0)
+            secLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            secLabel.BorderSizePixel = 0
+            secLabel.Text = "  " .. secName
+            secLabel.TextColor3 = Theme.Accent
+            secLabel.Font = Enum.Font.GothamBold
+            secLabel.TextSize = 11
+            secLabel.TextXAlignment = Enum.TextXAlignment.Left
+            secLabel.Parent = moduleContainer
+            return getChainingObject()
+        end
+        
+        Category.Toggle = Category.CreateToggle
+        Category.Button = Category.CreateButton
+        Category.Slider = Category.CreateSlider
+        Category.Dropdown = Category.CreateDropdown
+        Category.Label = Category.CreateLabel
+        Category.Colorpicker = Category.CreateColorpicker
+        Category.Keybind = Category.CreateKeybind
+        Category.Section = Category.CreateSection
 
         return Category
     end
@@ -721,7 +849,34 @@ function PhantomUI:CreateWindow(config)
     -- Build the built-in Settings Manager tab
     Window:BuildSettingsTab()
 
+
+
+    Window.Page = Window.CreateCategory
+    
+    function Window:Watermark(text)
+        watermarkLabel.Text = "  " .. text .. string.format(" | %s | 60 FPS  ", Window.Version)
+        
+        local obj = {}
+        function obj:SetVisibility(v) watermarkFrame.Visible = v end
+        return obj
+    end
+    
+    function Window:KeybindList()
+        local obj = {}
+        function obj:SetVisibility(v) end
+        return obj
+    end
+    
+    function Window:ArmorViewer()
+        local obj = {}
+        function obj:SetVisibility(v) end
+        return obj
+    end
+
+
     return Window
 end
+
+function PhantomUI:CreateSettingsPage(...) return end
 
 return PhantomUI
