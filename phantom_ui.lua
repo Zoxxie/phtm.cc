@@ -65,68 +65,127 @@ function PhantomUI:CreateWindow(config)
     Window.Blur.Size = 0 -- Start without blur during loading
     Window.Blur.Parent = game:GetService("Lighting")
 
-    -- Loading Animation
+    -- Advanced Loading Sequence
     local loadFrame = Instance.new("Frame")
     loadFrame.Size = UDim2.new(1, 0, 1, 0)
-    loadFrame.BackgroundTransparency = 0.3
-    loadFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+    loadFrame.BackgroundTransparency = 0.2
+    loadFrame.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
     loadFrame.Parent = Window.ScreenGui
 
-    local spinner = Instance.new("Frame")
-    spinner.Size = UDim2.new(0, 40, 0, 40)
-    spinner.Position = UDim2.new(0.5, -20, 0.5, -20)
-    spinner.BackgroundColor3 = Theme.Accent
-    spinner.BackgroundTransparency = 0.5
-    spinner.BorderSizePixel = 0
-    spinner.Parent = loadFrame
-    applyCorner(spinner, 20) -- Circle
+    local logoContainer = Instance.new("Frame")
+    logoContainer.Size = UDim2.new(0, 100, 0, 100)
+    logoContainer.Position = UDim2.new(0.5, -50, 0.5, -50)
+    logoContainer.BackgroundTransparency = 1
+    logoContainer.Parent = loadFrame
 
-    local innerHole = Instance.new("Frame")
-    innerHole.Size = UDim2.new(0, 30, 0, 30)
-    innerHole.Position = UDim2.new(0.5, -15, 0.5, -15)
-    innerHole.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
-    innerHole.BorderSizePixel = 0
-    innerHole.Parent = spinner
-    applyCorner(innerHole, 15)
+    -- Outer Thin Ring
+    local ring1 = Instance.new("Frame")
+    ring1.Size = UDim2.new(1, 0, 1, 0)
+    ring1.Position = UDim2.new(0, 0, 0, 0)
+    ring1.BackgroundColor3 = Theme.Accent
+    ring1.BackgroundTransparency = 0.3
+    ring1.Parent = logoContainer
+    applyCorner(ring1, 50)
     
-    local spinGlow = Instance.new("Frame")
-    spinGlow.Size = UDim2.new(0.5, 0, 0.5, 0)
-    spinGlow.Position = UDim2.new(0.5, 0, 0, 0)
-    spinGlow.BackgroundColor3 = Theme.Accent
-    spinGlow.BorderSizePixel = 0
-    spinGlow.Parent = spinner
-    applyCorner(spinGlow, 5)
+    local hole1 = Instance.new("Frame")
+    hole1.Size = UDim2.new(1, -4, 1, -4)
+    hole1.Position = UDim2.new(0, 2, 0, 2)
+    hole1.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
+    hole1.Parent = ring1
+    applyCorner(hole1, 50)
 
+    -- Inner Reverse Ring
+    local ring2 = Instance.new("Frame")
+    ring2.Size = UDim2.new(0, 70, 0, 70)
+    ring2.Position = UDim2.new(0.5, -35, 0.5, -35)
+    ring2.BackgroundColor3 = Color3.new(1, 1, 1)
+    ring2.BackgroundTransparency = 0.8
+    ring2.Parent = logoContainer
+    applyCorner(ring2, 35)
+    
+    local hole2 = Instance.new("Frame")
+    hole2.Size = UDim2.new(1, -6, 1, -6)
+    hole2.Position = UDim2.new(0, 3, 0, 3)
+    hole2.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
+    hole2.Parent = ring2
+    applyCorner(hole2, 35)
+
+    -- Pulsing Core
+    local core = Instance.new("Frame")
+    core.Size = UDim2.new(0, 20, 0, 20)
+    core.Position = UDim2.new(0.5, -10, 0.5, -10)
+    core.BackgroundColor3 = Theme.Accent
+    core.Parent = logoContainer
+    applyCorner(core, 10)
+
+    -- Text Elements
     local loadText = Instance.new("TextLabel")
-    loadText.Size = UDim2.new(0, 200, 0, 30)
-    loadText.Position = UDim2.new(0.5, -100, 0.5, 30)
+    loadText.Size = UDim2.new(0, 300, 0, 30)
+    loadText.Position = UDim2.new(0.5, -150, 0.5, 65)
     loadText.BackgroundTransparency = 1
-    loadText.Text = "Initializing " .. Window.Name .. "..."
-    loadText.TextColor3 = Theme.Text
-    loadText.Font = Enum.Font.GothamSemibold
-    loadText.TextSize = 14
+    loadText.Text = ""
+    loadText.TextColor3 = Color3.new(1, 1, 1)
+    loadText.Font = Enum.Font.GothamBold
+    loadText.TextSize = 18
     loadText.Parent = loadFrame
 
-    -- Spin Tween
-    local spinTween = TweenService:Create(spinner, TweenInfo.new(1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), {
-        Rotation = 360
-    })
-    spinTween:Play()
+    local subText = Instance.new("TextLabel")
+    subText.Size = UDim2.new(0, 300, 0, 20)
+    subText.Position = UDim2.new(0.5, -150, 0.5, 90)
+    subText.BackgroundTransparency = 1
+    subText.Text = "initializing architecture..."
+    subText.TextColor3 = Theme.Accent
+    subText.Font = Enum.Font.Gotham
+    subText.TextSize = 12
+    subText.TextTransparency = 1
+    subText.Parent = loadFrame
 
-    -- Simulate loading then destroy animation
-    task.delay(1.5, function()
-        spinTween:Cancel()
-        TweenService:Create(loadFrame, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
-        TweenService:Create(spinner, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
-        TweenService:Create(spinGlow, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
-        TweenService:Create(loadText, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
+    -- Animation Tweens
+    local t1 = TweenService:Create(ring1, TweenInfo.new(2.5, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), {Rotation = 360})
+    local t2 = TweenService:Create(ring2, TweenInfo.new(1.8, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), {Rotation = -360})
+    local t3 = TweenService:Create(core, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+        Size = UDim2.new(0, 30, 0, 30), Position = UDim2.new(0.5, -15, 0.5, -15), BackgroundTransparency = 0.5
+    })
+    
+    t1:Play()
+    t2:Play()
+    t3:Play()
+
+    -- Execution Sequence
+    task.spawn(function()
+        local fullText = "phantom.cc"
+        for i = 1, #fullText do
+            loadText.Text = string.sub(fullText, 1, i)
+            task.wait(0.05)
+        end
+        
+        TweenService:Create(subText, TweenInfo.new(0.4), {TextTransparency = 0.2}):Play()
+        task.wait(0.7)
+        subText.Text = "bypassing security..."
+        task.wait(0.7)
+        subText.Text = "injection successful."
+        subText.TextColor3 = Color3.fromRGB(50, 220, 50)
         
         task.wait(0.5)
+        
+        -- Explode & Fade transition
+        t1:Cancel() t2:Cancel() t3:Cancel()
+        TweenService:Create(ring1, TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0, 300, 0, 300), Position = UDim2.new(0.5, -150, 0.5, -150), BackgroundTransparency = 1}):Play()
+        TweenService:Create(ring2, TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0, 200, 0, 200), Position = UDim2.new(0.5, -100, 0.5, -100), BackgroundTransparency = 1}):Play()
+        TweenService:Create(core, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
+        
+        TweenService:Create(loadText, TweenInfo.new(0.4), {TextTransparency = 1, Position = UDim2.new(0.5, -150, 0.5, 55)}):Play()
+        TweenService:Create(subText, TweenInfo.new(0.4), {TextTransparency = 1, Position = UDim2.new(0.5, -150, 0.5, 80)}):Play()
+        TweenService:Create(loadFrame, TweenInfo.new(0.7), {BackgroundTransparency = 1}):Play()
+        
+        task.wait(0.7)
         loadFrame:Destroy()
         
-        -- Show UI
+        -- UI Reveal
+        Window.Container.Position = UDim2.new(0, 0, 0, 20)
         Window.Container.Visible = true
-        TweenService:Create(Window.Blur, TweenInfo.new(0.3), {Size = 12}):Play()
+        TweenService:Create(Window.Container, TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, 0, 0)}):Play()
+        TweenService:Create(Window.Blur, TweenInfo.new(0.4), {Size = 12}):Play()
     end)
 
     -- Watermark
