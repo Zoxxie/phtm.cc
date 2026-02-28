@@ -697,10 +697,29 @@ function Library:CreateWindow(config)
             return Section
         end
         
-        -- Aliases for Tab = Category
+        -- Aliases for Tab = Category backwards compatibility with old script without explicit Sections
         Tab.Section = Tab.CreateSection
-        Tab.Toggle = function(self, ...) return Tab:CreateSection({Name="Miscellaneous"}):CreateToggle(...) end
-        Tab.Slider = function(self, ...) return Tab:CreateSection({Name="Miscellaneous"}):CreateSlider(...) end
+
+        -- Create a persistent "Miscellaneous" section for detached elements to fall into
+        local function getMisc()
+            if not Tab.MiscSection then Tab.MiscSection = Tab:CreateSection({Name="Miscellaneous"}) end
+            return Tab.MiscSection
+        end
+
+        Tab.Toggle = function(...) return getMisc():Toggle(...) end
+        Tab.CreateToggle = function(...) return getMisc():CreateToggle(...) end
+        Tab.Button = function(...) return getMisc():Button(...) end
+        Tab.CreateButton = function(...) return getMisc():CreateButton(...) end
+        Tab.Slider = function(...) return getMisc():Slider(...) end
+        Tab.CreateSlider = function(...) return getMisc():CreateSlider(...) end
+        Tab.Dropdown = function(...) return getMisc():Dropdown(...) end
+        Tab.CreateDropdown = function(...) return getMisc():CreateDropdown(...) end
+        Tab.Label = function(...) return getMisc():Label(...) end
+        Tab.CreateLabel = function(...) return getMisc():CreateLabel(...) end
+        Tab.Colorpicker = function(...) return getMisc():Colorpicker(...) end
+        Tab.CreateColorpicker = function(...) return getMisc():CreateColorpicker(...) end
+        Tab.Keybind = function(...) return getMisc():Keybind(...) end
+        Tab.CreateKeybind = function(...) return getMisc():CreateKeybind(...) end
 
         return Tab
     end
