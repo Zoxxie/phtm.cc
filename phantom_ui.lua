@@ -1,14 +1,10 @@
--- phantom.cc Premium UI Library
--- Highly optimized, modern, 2-column UI architecture
--- For Roblox Executors
-
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 
-local Library = {}
+local Library = { Flags = {} }
 local Utility = {}
 
 local Theme = {
@@ -250,7 +246,7 @@ function Library:CreateWindow(config)
         return obj
     end
     function Window:KeybindList() return {SetVisibility=function()end} end
-    function Window:ArmorViewer() return {SetVisibility=function()end} end
+    function Window:ArmorViewer() return {SetVisibility=function()end, ClearAllItems=function()end, SetTitle=function()end, Add=function()end} end
 
     UserInputService.InputBegan:Connect(function(input, processed)
         if Window.BindingModule then
@@ -412,6 +408,8 @@ function Library:CreateWindow(config)
                 function Chain:CreateColorpicker(opts) Section:CreateColorpicker(opts); return Chain end
                 function Chain:Keybind(opts) Section:CreateKeybind(opts); return Chain end
                 function Chain:CreateKeybind(opts) Section:CreateKeybind(opts); return Chain end
+                function Chain:TextBox(opts) Section:CreateTextBox(opts); return Chain end
+                function Chain:CreateTextBox(opts) Section:CreateTextBox(opts); return Chain end
                 return Chain
             end
 
@@ -420,6 +418,7 @@ function Library:CreateWindow(config)
                 local default = opts.Default or false
                 local cb = opts.Callback or function() end
                 
+                Library.Flags[flag] = default
                 Window.FlagsCache.Toggles[flag] = default
 
                 local Elem = Utility:Create("Frame", {
@@ -456,6 +455,7 @@ function Library:CreateWindow(config)
                 })
 
                 local function setVisual(state)
+                    Library.Flags[flag] = state
                     Window.FlagsCache.Toggles[flag] = state
                     Utility:Tween(Label, {TextColor3 = state and Theme.Text or Theme.TextDim}, 0.15)
                     Utility:Tween(Box, {BackgroundColor3 = state and Theme.Accent or Theme.ElementBg}, 0.15)
@@ -486,6 +486,7 @@ function Library:CreateWindow(config)
                 local default = opts.Default or min
                 local cb = opts.Callback or function() end
                 
+                Library.Flags[flag] = default
                 Window.FlagsCache.Sliders[flag] = default
 
                 local Elem = Utility:Create("Frame", {
@@ -539,6 +540,7 @@ function Library:CreateWindow(config)
                 local function update(input)
                     local cl = math.clamp((input.Position.X - Bg.AbsolutePosition.X) / Bg.AbsoluteSize.X, 0, 1)
                     local v = math.floor(min + ((max - min) * cl))
+                    Library.Flags[flag] = v
                     Window.FlagsCache.Sliders[flag] = v
                     ValLabel.Text = tostring(v)
                     Utility:Tween(Fill, {Size = UDim2.new(cl, 0, 1, 0)}, 0.05)
@@ -559,6 +561,7 @@ function Library:CreateWindow(config)
 
                 Window.UpdateFunctions[flag] = function(v)
                     v = math.clamp(v, min, max)
+                    Library.Flags[flag] = v
                     Window.FlagsCache.Sliders[flag] = v
                     ValLabel.Text = tostring(v)
                     Fill.Size = UDim2.new((v - min)/(max - min), 0, 1, 0)
@@ -571,6 +574,7 @@ function Library:CreateWindow(config)
             function Section:CreateColorpicker(opts)
                 local flag = opts.Flag or opts.Name or "Colorpicker"
                 local defColor = type(opts.Default) == "userdata" and opts.Default or Color3.fromRGB(255,100,100)
+                Library.Flags[flag] = {Color = defColor, Transparency = 0}
                 Window.FlagsCache.Colors[flag] = {Color = defColor, Transparency = 0}
 
                 local Elem = Utility:Create("Frame", {
@@ -601,6 +605,7 @@ function Library:CreateWindow(config)
                 Box.MouseButton1Click:Connect(function()
                     local c = Window.FlagsCache.Colors[flag].Color
                     local newC = Color3.fromRGB(math.random(50,255), math.random(50,255), math.random(50,255))
+                    Library.Flags[flag].Color = newC
                     Window.FlagsCache.Colors[flag].Color = newC
                     Box.BackgroundColor3 = newC
                 end)
@@ -610,6 +615,7 @@ function Library:CreateWindow(config)
 
             function Section:CreateKeybind(opts)
                 local flag = opts.Flag or opts.Name or "Keybind"
+                Library.Flags[flag] = opts.Default
                 Window.Keybinds[flag] = opts.Default
 
                 local Elem = Utility:Create("Frame", {
@@ -689,8 +695,59 @@ function Library:CreateWindow(config)
             function Section:CreateDropdown(opts)
                 -- Simple elegant stub for Dropdown logic
                 local flag = opts.Flag or opts.Name or "Dropdown"
+                Library.Flags[flag] = opts.Default or ""
                 Window.FlagsCache.Dropdowns[flag] = opts.Default or ""
                 Section:CreateLabel({Name = (opts.Name or flag) .. " (Dropdown)"})
+                return getChainingObject()
+            end
+
+            function Section:CreateTextBox(opts)
+                local flag = opts.Flag or opts.Name or "TextBox"
+                Library.Flags[flag] = opts.Default or ""
+
+                local Elem = Utility:Create("Frame", {
+                    Size = UDim2.new(1, 0, 0, 48),
+                    BackgroundTransparency = 1,
+                    Parent = SecContainer
+                })
+                Utility:Create("TextLabel", {
+                    Size = UDim2.new(1, 0, 0, 16),
+                    BackgroundTransparency = 1,
+                    Text = opts.Name or flag,
+                    TextColor3 = Theme.Text,
+                    Font = Enum.Font.GothamSemibold,
+                    TextSize = 12,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    Parent = Elem
+                })
+                local BoxBg = Utility:Create("Frame", {
+                    Size = UDim2.new(1, 0, 0, 24),
+                    Position = UDim2.new(0, 0, 0, 20),
+                    BackgroundColor3 = Theme.ElementBg,
+                    Parent = Elem,
+                    Utility:Corner(nil, 4), Utility:Stroke(nil, Theme.Border)
+                })
+                local Box = Utility:Create("TextBox", {
+                    Size = UDim2.new(1, -12, 1, 0),
+                    Position = UDim2.new(0, 6, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text = opts.Default or "",
+                    PlaceholderText = "...",
+                    TextColor3 = Theme.Text,
+                    Font = Enum.Font.Gotham,
+                    TextSize = 12,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    ClearTextOnFocus = false,
+                    Parent = BoxBg
+                })
+                Box.FocusLost:Connect(function()
+                    Library.Flags[flag] = Box.Text
+                    if opts.Callback then opts.Callback(Box.Text) end
+                end)
+                Window.UpdateFunctions[flag] = function(v)
+                    Box.Text = tostring(v)
+                    Library.Flags[flag] = v
+                end
                 return getChainingObject()
             end
 
@@ -720,6 +777,8 @@ function Library:CreateWindow(config)
         Tab.CreateColorpicker = function(...) return getMisc():CreateColorpicker(...) end
         Tab.Keybind = function(...) return getMisc():Keybind(...) end
         Tab.CreateKeybind = function(...) return getMisc():CreateKeybind(...) end
+        Tab.TextBox = function(...) return getMisc():TextBox(...) end
+        Tab.CreateTextBox = function(...) return getMisc():CreateTextBox(...) end
 
         return Tab
     end
@@ -730,13 +789,69 @@ function Library:CreateWindow(config)
     function Window:BuildSettingsTab()
         local sTab = self:CreateCategory("Settings")
         local sSec = sTab:CreateSection({Name="Configuration", Side=1})
-        sSec:CreateButton({Name = "Save Config", Callback=function() end})
-        sSec:CreateButton({Name = "Load Config", Callback=function() end})
+        
+        local folderPath = tostring(Window.Name or "phantom_configs"):gsub("[%c%s%p]", "_")
+        if makefolder and not isfolder(folderPath) then
+            makefolder(folderPath)
+        end
+        
+        sSec:CreateTextBox({Name = "Config Name", Flag = "_ConfigName_", Default = "default"})
+        
+        sSec:CreateButton({Name = "Save Config", Callback=function()
+            if not writefile then return end
+            local cfgName = (Library.Flags["_ConfigName_"] or "default") .. ".txt"
+            
+            local toSave = {}
+            for k,v in pairs(Library.Flags) do
+                if type(v) == "table" and v.Color then
+                    toSave[k] = {Color = {v.Color.R, v.Color.G, v.Color.B}, Transparency = v.Transparency}
+                elseif type(v) == "userdata" and typeof(v) == "EnumItem" then
+                    toSave[k] = {EnumName = tostring(v)}
+                elseif type(v) ~= "function" and type(v) ~= "thread" and type(v) ~= "userdata" then
+                    toSave[k] = v
+                end
+            end
+            
+            local success, json = pcall(function() return HttpService:JSONEncode(toSave) end)
+            if success then
+                writefile(folderPath .. "\\\\" .. cfgName, json)
+            end
+        end})
+        
+        sSec:CreateButton({Name = "Load Config", Callback=function()
+            if not readfile then return end
+            local cfgName = (Library.Flags["_ConfigName_"] or "default") .. ".txt"
+            local path = folderPath .. "\\\\" .. cfgName
+            if isfile and isfile(path) then
+                local success, data = pcall(function() return HttpService:JSONDecode(readfile(path)) end)
+                if success and type(data) == "table" then
+                    for k,v in pairs(data) do
+                        if type(v) == "table" and v.Color then
+                            if Window.UpdateFunctions[k] then
+                                Window.UpdateFunctions[k]({Color = Color3.new(v.Color[1], v.Color[2], v.Color[3]), Transparency = v.Transparency})
+                            end
+                        elseif type(v) == "table" and v.EnumName then
+                            -- Enum placeholder
+                        else
+                            if Window.UpdateFunctions[k] then
+                                Window.UpdateFunctions[k](v)
+                            end
+                        end
+                    end
+                end
+            end
+        end})
     end
 
     Window:BuildSettingsTab()
 
     return Window
+end
+
+Library.Window = Library.CreateWindow
+
+function Library:CreateSettingsPage(win, binds, wm)
+    return win:BuildSettingsTab()
 end
 
 return Library
