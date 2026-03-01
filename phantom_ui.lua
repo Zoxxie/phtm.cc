@@ -218,387 +218,387 @@ function Library:Window(options)
                 Parent = SectionContainer
             })
             
-            local Section = {}
+            return Category
+        end
+        
+        function Category:CreateToggle(opts)
+            local tName = opts.Name or opts[1] or "Toggle"
+            local flag = opts.Flag or tName
+            local default = opts.Default or false
+            local callback = opts.Callback or function() end
             
-            function Section:CreateToggle(opts)
-                local tName = opts.Name or opts[1] or "Toggle"
-                local flag = opts.Flag or tName
-                local default = opts.Default or false
-                local callback = opts.Callback or function() end
-                
-                Library.Flags[flag] = default
-                
-                local ToggleFrame = Utility:Create("TextButton", {
-                    Size = UDim2.new(1, 0, 0, 20),
-                    BackgroundTransparency = 1,
-                    Text = "",
-                    AutoButtonColor = false,
-                    Parent = ContentScroll
-                })
-                
-                local Title = Utility:Create("TextLabel", {
-                    Size = UDim2.new(1, -5, 1, 0),
-                    Position = UDim2.new(0, 5, 0, 0),
-                    BackgroundTransparency = 1,
-                    Text = tName,
-                    TextColor3 = default and Library.Theme.Accent or Library.Theme.TextDim,
-                    Font = Enum.Font.Gotham,
-                    TextSize = 12,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Parent = ToggleFrame
-                })
-                
-                local function SetState(state)
-                    Library.Flags[flag] = state
-                    Utility:Tween(Title, {TextColor3 = state and Library.Theme.Accent or Library.Theme.TextDim}, 0.15)
-                    pcall(callback, state)
-                end
-                
-                ToggleFrame.MouseButton1Click:Connect(function()
-                    SetState(not Library.Flags[flag])
-                end)
-                ToggleFrame.MouseEnter:Connect(function() Utility:Tween(ToggleFrame, {BackgroundColor3 = Library.Theme.Hover, BackgroundTransparency = 0.5}, 0.1) end)
-                ToggleFrame.MouseLeave:Connect(function() Utility:Tween(ToggleFrame, {BackgroundTransparency = 1}, 0.1) end)
-                
-                Window.UpdateFunctions[flag .. "_Toggle"] = function()
-                    SetState(not Library.Flags[flag])
-                end
-                
-                SetState(default)
-                return { Set = SetState }
+            Library.Flags[flag] = default
+            
+            local ToggleFrame = Utility:Create("TextButton", {
+                Size = UDim2.new(1, 0, 0, 20),
+                BackgroundTransparency = 1,
+                Text = "",
+                AutoButtonColor = false,
+                Parent = ContentScroll
+            })
+            
+            local Title = Utility:Create("TextLabel", {
+                Size = UDim2.new(1, -5, 1, 0),
+                Position = UDim2.new(0, 5, 0, 0),
+                BackgroundTransparency = 1,
+                Text = tName,
+                TextColor3 = default and Library.Theme.Accent or Library.Theme.TextDim,
+                Font = Enum.Font.Gotham,
+                TextSize = 12,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Parent = ToggleFrame
+            })
+            
+            local function SetState(state)
+                Library.Flags[flag] = state
+                Utility:Tween(Title, {TextColor3 = state and Library.Theme.Accent or Library.Theme.TextDim}, 0.15)
+                pcall(callback, state)
             end
+            
+            ToggleFrame.MouseButton1Click:Connect(function()
+                SetState(not Library.Flags[flag])
+            end)
+            ToggleFrame.MouseEnter:Connect(function() Utility:Tween(ToggleFrame, {BackgroundColor3 = Library.Theme.Hover, BackgroundTransparency = 0.5}, 0.1) end)
+            ToggleFrame.MouseLeave:Connect(function() Utility:Tween(ToggleFrame, {BackgroundTransparency = 1}, 0.1) end)
+            
+            Window.UpdateFunctions[flag .. "_Toggle"] = function()
+                SetState(not Library.Flags[flag])
+            end
+            
+            SetState(default)
+            return { Set = SetState }
+        end
 
-            function Section:CreateSlider(opts)
-                local sName = opts.Name or opts[1] or "Slider"
-                local flag = opts.Flag or sName
-                local min = opts.Min or 0
-                local max = opts.Max or 100
-                local default = opts.Default or min
-                local callback = opts.Callback or function() end
-                
-                Library.Flags[flag] = default
-                
-                local SliderFrame = Utility:Create("Frame", {
-                    Size = UDim2.new(1, 0, 0, 30),
-                    BackgroundTransparency = 1,
-                    Parent = ContentScroll
-                })
-                
-                local Title = Utility:Create("TextLabel", {
-                    Size = UDim2.new(1, -10, 0, 15),
-                    Position = UDim2.new(0, 5, 0, 2),
-                    BackgroundTransparency = 1,
-                    Text = sName,
-                    TextColor3 = Library.Theme.Text,
-                    Font = Enum.Font.Gotham,
-                    TextSize = 11,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Parent = SliderFrame
-                })
-                
-                local ValueLabel = Utility:Create("TextLabel", {
-                    Size = UDim2.new(1, -10, 0, 15),
-                    Position = UDim2.new(0, 5, 0, 2),
-                    BackgroundTransparency = 1,
-                    Text = tostring(default),
-                    TextColor3 = Library.Theme.Accent,
-                    Font = Enum.Font.Gotham,
-                    TextSize = 11,
-                    TextXAlignment = Enum.TextXAlignment.Right,
-                    Parent = SliderFrame
-                })
-                
-                local BarBG = Utility:Create("TextButton", {
-                    Size = UDim2.new(1, -10, 0, 4),
-                    Position = UDim2.new(0, 5, 0, 20),
-                    BackgroundColor3 = Library.Theme.Element,
-                    BorderSizePixel = 0,
-                    Text = "",
-                    AutoButtonColor = false,
-                    Parent = SliderFrame
-                })
-                
-                local BarFill = Utility:Create("Frame", {
-                    Size = UDim2.new((default - min) / (max - min), 0, 1, 0),
-                    BackgroundColor3 = Library.Theme.Accent,
-                    BorderSizePixel = 0,
-                    Parent = BarBG
-                })
-                
-                local function SetValue(val)
-                    val = math.clamp(math.round(val * 10) / 10, min, max)
-                    Library.Flags[flag] = val
-                    ValueLabel.Text = tostring(val)
-                    Utility:Tween(BarFill, {Size = UDim2.new((val - min) / (max - min), 0, 1, 0)}, 0.1)
-                    pcall(callback, val)
-                end
-                
-                local dragging = false
-                BarBG.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        dragging = true
-                        local pct = math.clamp((input.Position.X - BarBG.AbsolutePosition.X) / BarBG.AbsoluteSize.X, 0, 1)
-                        SetValue(min + (max - min) * pct)
-                    end
-                end)
-                
-                UserInputService.InputEnded:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
-                end)
-                
-                UserInputService.InputChanged:Connect(function(input)
-                    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                        local pct = math.clamp((input.Position.X - BarBG.AbsolutePosition.X) / BarBG.AbsoluteSize.X, 0, 1)
-                        SetValue(min + (max - min) * pct)
-                    end
-                end)
-                
-                SetValue(default)
-                return { Set = SetValue }
+        function Category:CreateSlider(opts)
+            local sName = opts.Name or opts[1] or "Slider"
+            local flag = opts.Flag or sName
+            local min = opts.Min or 0
+            local max = opts.Max or 100
+            local default = opts.Default or min
+            local callback = opts.Callback or function() end
+            
+            Library.Flags[flag] = default
+            
+            local SliderFrame = Utility:Create("Frame", {
+                Size = UDim2.new(1, 0, 0, 30),
+                BackgroundTransparency = 1,
+                Parent = ContentScroll
+            })
+            
+            local Title = Utility:Create("TextLabel", {
+                Size = UDim2.new(1, -10, 0, 15),
+                Position = UDim2.new(0, 5, 0, 2),
+                BackgroundTransparency = 1,
+                Text = sName,
+                TextColor3 = Library.Theme.Text,
+                Font = Enum.Font.Gotham,
+                TextSize = 11,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Parent = SliderFrame
+            })
+            
+            local ValueLabel = Utility:Create("TextLabel", {
+                Size = UDim2.new(1, -10, 0, 15),
+                Position = UDim2.new(0, 5, 0, 2),
+                BackgroundTransparency = 1,
+                Text = tostring(default),
+                TextColor3 = Library.Theme.Accent,
+                Font = Enum.Font.Gotham,
+                TextSize = 11,
+                TextXAlignment = Enum.TextXAlignment.Right,
+                Parent = SliderFrame
+            })
+            
+            local BarBG = Utility:Create("TextButton", {
+                Size = UDim2.new(1, -10, 0, 4),
+                Position = UDim2.new(0, 5, 0, 20),
+                BackgroundColor3 = Library.Theme.Element,
+                BorderSizePixel = 0,
+                Text = "",
+                AutoButtonColor = false,
+                Parent = SliderFrame
+            })
+            
+            local BarFill = Utility:Create("Frame", {
+                Size = UDim2.new((default - min) / (max - min), 0, 1, 0),
+                BackgroundColor3 = Library.Theme.Accent,
+                BorderSizePixel = 0,
+                Parent = BarBG
+            })
+            
+            local function SetValue(val)
+                val = math.clamp(math.round(val * 10) / 10, min, max)
+                Library.Flags[flag] = val
+                ValueLabel.Text = tostring(val)
+                Utility:Tween(BarFill, {Size = UDim2.new((val - min) / (max - min), 0, 1, 0)}, 0.1)
+                pcall(callback, val)
             end
             
-            function Section:CreateColorpicker(opts)
-                local cpName = opts.Name or opts[1] or "Colorpicker"
-                local flag = opts.Flag or cpName
-                local default = opts.Default or Color3.new(1,1,1)
-                local callback = opts.Callback or function() end
-                
-                Library.Flags[flag] = default
-                
-                local CPFrame = Utility:Create("Frame", {
-                    Size = UDim2.new(1, 0, 0, 20),
-                    BackgroundTransparency = 1,
-                    Parent = ContentScroll
-                })
-                
-                local Title = Utility:Create("TextLabel", {
-                    Size = UDim2.new(1, -30, 1, 0),
-                    Position = UDim2.new(0, 5, 0, 0),
-                    BackgroundTransparency = 1,
-                    Text = cpName,
-                    TextColor3 = Library.Theme.TextDim,
-                    Font = Enum.Font.Gotham,
-                    TextSize = 12,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Parent = CPFrame
-                })
-                
-                local ColorDisplay = Utility:Create("Frame", {
-                    Size = UDim2.new(0, 12, 0, 12),
-                    Position = UDim2.new(1, -17, 0.5, -6),
-                    BackgroundColor3 = default,
-                    BorderSizePixel = 0,
-                    Parent = CPFrame
-                })
-                
-                local function SetCol(col)
-                    Library.Flags[flag] = col
-                    ColorDisplay.BackgroundColor3 = col
-                    pcall(callback, col)
+            local dragging = false
+            BarBG.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    dragging = true
+                    local pct = math.clamp((input.Position.X - BarBG.AbsolutePosition.X) / BarBG.AbsoluteSize.X, 0, 1)
+                    SetValue(min + (max - min) * pct)
                 end
-                
-                return { Set = SetCol }
+            end)
+            
+            UserInputService.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+            end)
+            
+            UserInputService.InputChanged:Connect(function(input)
+                if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                    local delta = input.Position - dragStart
+                    local mousePos = UserInputService:GetMouseLocation().X
+                    local relX = mousePos - BarBG.AbsolutePosition.X
+                    local pct = math.clamp(relX / BarBG.AbsoluteSize.X, 0, 1)
+                    local val = min + (max - min) * pct
+                    SetValue(val)
+                end
+            end)
+            
+            SetValue(default)
+            return { Set = SetValue }
+        end
+        
+        function Category:CreateColorpicker(opts)
+            local cpName = opts.Name or opts[1] or "Colorpicker"
+            local flag = opts.Flag or cpName
+            local default = opts.Default or Color3.new(1,1,1)
+            local callback = opts.Callback or function() end
+            
+            Library.Flags[flag] = default
+            
+            local CPFrame = Utility:Create("Frame", {
+                Size = UDim2.new(1, 0, 0, 20),
+                BackgroundTransparency = 1,
+                Parent = ContentScroll
+            })
+            
+            local Title = Utility:Create("TextLabel", {
+                Size = UDim2.new(1, -30, 1, 0),
+                Position = UDim2.new(0, 5, 0, 0),
+                BackgroundTransparency = 1,
+                Text = cpName,
+                TextColor3 = Library.Theme.TextDim,
+                Font = Enum.Font.Gotham,
+                TextSize = 12,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Parent = CPFrame
+            })
+            
+            local ColorDisplay = Utility:Create("Frame", {
+                Size = UDim2.new(0, 12, 0, 12),
+                Position = UDim2.new(1, -17, 0.5, -6),
+                BackgroundColor3 = default,
+                BorderSizePixel = 0,
+                Parent = CPFrame
+            })
+            
+            local function SetCol(col)
+                Library.Flags[flag] = col
+                ColorDisplay.BackgroundColor3 = col
+                pcall(callback, col)
             end
             
-            function Section:CreateDropdown(opts)
-                local tName = opts.Name or opts[1] or "Dropdown"
-                local flag = opts.Flag or tName
-                local list = opts.List or {}
-                local callback = opts.Callback or function() end
+            return { Set = SetCol }
+        end
+        
+        function Category:CreateDropdown(opts)
+            local tName = opts.Name or opts[1] or "Dropdown"
+            local flag = opts.Flag or tName
+            local list = opts.List or {}
+            local callback = opts.Callback or function() end
+            
+            Library.Flags[flag] = list[1]
+            
+            local DDFrame = Utility:Create("Frame", {
+                Size = UDim2.new(1, 0, 0, 36),
+                BackgroundTransparency = 1,
+                Parent = ContentScroll
+            })
+            
+            local Title = Utility:Create("TextLabel", {
+                Size = UDim2.new(1, -10, 0, 16),
+                Position = UDim2.new(0, 5, 0, 0),
+                BackgroundTransparency = 1,
+                Text = tName,
+                TextColor3 = Library.Theme.Text,
+                Font = Enum.Font.Gotham,
+                TextSize = 11,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Parent = DDFrame
+            })
+            
+            local DisplayBtn = Utility:Create("TextButton", {
+                Size = UDim2.new(1, -10, 0, 16),
+                Position = UDim2.new(0, 5, 0, 16),
+                BackgroundColor3 = Library.Theme.Element,
+                BorderSizePixel = 0,
+                Text = tostring(list[1] or "None"),
+                TextColor3 = Library.Theme.Accent,
+                Font = Enum.Font.Gotham,
+                TextSize = 11,
+                Parent = DDFrame
+            })
+            
+            DisplayBtn.MouseButton1Click:Connect(function()
+                local currentIdx = table.find(list, Library.Flags[flag]) or 0
+                local nextIdx = currentIdx + 1
+                if nextIdx > #list then nextIdx = 1 end
                 
-                Library.Flags[flag] = list[1]
-                
-                local DDFrame = Utility:Create("Frame", {
-                    Size = UDim2.new(1, 0, 0, 36),
-                    BackgroundTransparency = 1,
-                    Parent = ContentScroll
-                })
-                
-                local Title = Utility:Create("TextLabel", {
-                    Size = UDim2.new(1, -10, 0, 16),
-                    Position = UDim2.new(0, 5, 0, 0),
-                    BackgroundTransparency = 1,
-                    Text = tName,
-                    TextColor3 = Library.Theme.Text,
-                    Font = Enum.Font.Gotham,
-                    TextSize = 11,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Parent = DDFrame
-                })
-                
-                local DisplayBtn = Utility:Create("TextButton", {
-                    Size = UDim2.new(1, -10, 0, 16),
-                    Position = UDim2.new(0, 5, 0, 16),
-                    BackgroundColor3 = Library.Theme.Element,
-                    BorderSizePixel = 0,
-                    Text = tostring(list[1] or "None"),
-                    TextColor3 = Library.Theme.Accent,
-                    Font = Enum.Font.Gotham,
-                    TextSize = 11,
-                    Parent = DDFrame
-                })
-                
-                DisplayBtn.MouseButton1Click:Connect(function()
-                    local currentIdx = table.find(list, Library.Flags[flag]) or 0
-                    local nextIdx = currentIdx + 1
-                    if nextIdx > #list then nextIdx = 1 end
-                    
-                    local selected = list[nextIdx]
-                    Library.Flags[flag] = selected
-                    DisplayBtn.Text = tostring(selected)
-                    pcall(callback, selected)
-                end)
-                
-                return {}
-            end
+                local selected = list[nextIdx]
+                Library.Flags[flag] = selected
+                DisplayBtn.Text = tostring(selected)
+                pcall(callback, selected)
+            end)
+            
+            return {}
+        end
 
-            function Section:CreateKeybind(opts)
-                local kName = opts.Name or opts[1] or "Keybind"
-                local flag = opts.Flag or kName
-                local default = opts.Default or Enum.KeyCode.Unknown
-                local callback = opts.Callback or function() end
-                
-                Library.Flags[flag] = default
-                Window.Keybinds[kName] = default
-                
-                local KFrame = Utility:Create("Frame", {
-                    Size = UDim2.new(1, 0, 0, 20),
-                    BackgroundTransparency = 1,
-                    Parent = ContentScroll
-                })
-                
-                local Title = Utility:Create("TextLabel", {
-                    Size = UDim2.new(1, -50, 1, 0),
-                    Position = UDim2.new(0, 5, 0, 0),
-                    BackgroundTransparency = 1,
-                    Text = kName,
-                    TextColor3 = Library.Theme.TextDim,
-                    Font = Enum.Font.Gotham,
-                    TextSize = 12,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Parent = KFrame
-                })
-                
-                local BindBtn = Utility:Create("TextButton", {
-                    Size = UDim2.new(0, 40, 0, 14),
-                    Position = UDim2.new(1, -45, 0.5, -7),
-                    BackgroundColor3 = Library.Theme.Element,
-                    BorderSizePixel = 0,
-                    Text = (default == Enum.KeyCode.Unknown and "None" or default.Name),
-                    TextColor3 = Library.Theme.Accent,
-                    Font = Enum.Font.Gotham,
-                    TextSize = 10,
-                    Parent = KFrame
-                })
-                
-                local binding = false
-                BindBtn.MouseButton1Click:Connect(function()
-                    binding = true
-                    BindBtn.Text = "..."
-                end)
-                
-                UserInputService.InputBegan:Connect(function(input)
-                    if binding and input.UserInputType == Enum.UserInputType.Keyboard then
-                        local key = input.KeyCode
-                        if key == Enum.KeyCode.Escape then
-                            key = Enum.KeyCode.Unknown
-                        end
-                        Library.Flags[flag] = key
-                        Window.Keybinds[kName] = key
-                        BindBtn.Text = (key == Enum.KeyCode.Unknown and "None" or key.Name)
-                        binding = false
-                        pcall(callback, key)
+        function Category:CreateKeybind(opts)
+            local kName = opts.Name or opts[1] or "Keybind"
+            local flag = opts.Flag or kName
+            local default = opts.Default or Enum.KeyCode.Unknown
+            local callback = opts.Callback or function() end
+            
+            Library.Flags[flag] = default
+            Window.Keybinds[kName] = default
+            
+            local KFrame = Utility:Create("Frame", {
+                Size = UDim2.new(1, 0, 0, 20),
+                BackgroundTransparency = 1,
+                Parent = ContentScroll
+            })
+            
+            local Title = Utility:Create("TextLabel", {
+                Size = UDim2.new(1, -50, 1, 0),
+                Position = UDim2.new(0, 5, 0, 0),
+                BackgroundTransparency = 1,
+                Text = kName,
+                TextColor3 = Library.Theme.TextDim,
+                Font = Enum.Font.Gotham,
+                TextSize = 12,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Parent = KFrame
+            })
+            
+            local BindBtn = Utility:Create("TextButton", {
+                Size = UDim2.new(0, 40, 0, 14),
+                Position = UDim2.new(1, -45, 0.5, -7),
+                BackgroundColor3 = Library.Theme.Element,
+                BorderSizePixel = 0,
+                Text = (default == Enum.KeyCode.Unknown and "None" or default.Name),
+                TextColor3 = Library.Theme.Accent,
+                Font = Enum.Font.Gotham,
+                TextSize = 10,
+                Parent = KFrame
+            })
+            
+            local binding = false
+            BindBtn.MouseButton1Click:Connect(function()
+                binding = true
+                BindBtn.Text = "..."
+            end)
+            
+            UserInputService.InputBegan:Connect(function(input)
+                if binding and input.UserInputType == Enum.UserInputType.Keyboard then
+                    local key = input.KeyCode
+                    if key == Enum.KeyCode.Escape then
+                        key = Enum.KeyCode.Unknown
                     end
-                end)
-                
-                return {}
-            end
+                    Library.Flags[flag] = key
+                    Window.Keybinds[kName] = key
+                    BindBtn.Text = (key == Enum.KeyCode.Unknown and "None" or key.Name)
+                    binding = false
+                    pcall(callback, key)
+                end
+            end)
             
-            function Section:CreateTextBox(opts)
-                local tbName = opts.Name or opts[1] or "TextBox"
-                local flag = opts.Flag or tbName
-                local default = opts.Default or ""
-                local callback = opts.Callback or function() end
-                
-                Library.Flags[flag] = default
-                
-                local TBFrame = Utility:Create("Frame", {
-                    Size = UDim2.new(1, 0, 0, 36),
-                    BackgroundTransparency = 1,
-                    Parent = ContentScroll
-                })
-                
-                local Title = Utility:Create("TextLabel", {
-                    Size = UDim2.new(1, -10, 0, 16),
-                    Position = UDim2.new(0, 5, 0, 0),
-                    BackgroundTransparency = 1,
-                    Text = tbName,
-                    TextColor3 = Library.Theme.TextDim,
-                    Font = Enum.Font.Gotham,
-                    TextSize = 11,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Parent = TBFrame
-                })
-                
-                local TextBoxBlock = Utility:Create("TextBox", {
-                    Size = UDim2.new(1, -10, 0, 16),
-                    Position = UDim2.new(0, 5, 0, 16),
-                    BackgroundColor3 = Library.Theme.Element,
-                    BorderSizePixel = 0,
-                    Text = default,
-                    PlaceholderText = "...",
-                    TextColor3 = Library.Theme.Text,
-                    Font = Enum.Font.Gotham,
-                    TextSize = 11,
-                    Parent = TBFrame
-                })
-                
-                TextBoxBlock.FocusLost:Connect(function()
-                    Library.Flags[flag] = TextBoxBlock.Text
-                    pcall(callback, TextBoxBlock.Text)
-                end)
-                
-                return {}
-            end
+            return {}
+        end
+        
+        function Category:CreateTextBox(opts)
+            local tbName = opts.Name or opts[1] or "TextBox"
+            local flag = opts.Flag or tbName
+            local default = opts.Default or ""
+            local callback = opts.Callback or function() end
             
-            function Section:CreateButton(opts)
-                local btnName = opts.Name or opts[1] or "Button"
-                local callback = opts.Callback or function() end
-                
-                local Wrapper = Utility:Create("Frame", {
-                    Size = UDim2.new(1, 0, 0, 24),
-                    BackgroundTransparency = 1,
-                    Parent = ContentScroll
-                })
-                
-                local BtnFrame = Utility:Create("TextButton", {
-                    Size = UDim2.new(1, -10, 0, 20),
-                    Position = UDim2.new(0, 5, 0, 2),
-                    BackgroundColor3 = Library.Theme.Element,
-                    BorderSizePixel = 0,
-                    Text = btnName,
-                    TextColor3 = Library.Theme.Text,
-                    Font = Enum.Font.Gotham,
-                    TextSize = 11,
-                    Parent = Wrapper
-                })
-                
-                BtnFrame.MouseButton1Click:Connect(callback)
-            end
+            Library.Flags[flag] = default
             
-            -- Aliases
-            Section.Toggle = Section.CreateToggle
-            Section.Slider = Section.CreateSlider
-            Section.Colorpicker = Section.CreateColorpicker
-            Section.Dropdown = Section.CreateDropdown
-            Section.Keybind = Section.CreateKeybind
-            Section.TextBox = Section.CreateTextBox
-            Section.Button = Section.CreateButton
+            local TBFrame = Utility:Create("Frame", {
+                Size = UDim2.new(1, 0, 0, 36),
+                BackgroundTransparency = 1,
+                Parent = ContentScroll
+            })
             
-            return Section
+            local Title = Utility:Create("TextLabel", {
+                Size = UDim2.new(1, -10, 0, 16),
+                Position = UDim2.new(0, 5, 0, 0),
+                BackgroundTransparency = 1,
+                Text = tbName,
+                TextColor3 = Library.Theme.TextDim,
+                Font = Enum.Font.Gotham,
+                TextSize = 11,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Parent = TBFrame
+            })
+            
+            local TextBoxBlock = Utility:Create("TextBox", {
+                Size = UDim2.new(1, -10, 0, 16),
+                Position = UDim2.new(0, 5, 0, 16),
+                BackgroundColor3 = Library.Theme.Element,
+                BorderSizePixel = 0,
+                Text = default,
+                PlaceholderText = "...",
+                TextColor3 = Library.Theme.Text,
+                Font = Enum.Font.Gotham,
+                TextSize = 11,
+                Parent = TBFrame
+            })
+            
+            TextBoxBlock.FocusLost:Connect(function()
+                Library.Flags[flag] = TextBoxBlock.Text
+                pcall(callback, TextBoxBlock.Text)
+            end)
+            
+            return {}
+        end
+        
+        function Category:CreateButton(opts)
+            local btnName = opts.Name or opts[1] or "Button"
+            local callback = opts.Callback or function() end
+            
+            local Wrapper = Utility:Create("Frame", {
+                Size = UDim2.new(1, 0, 0, 24),
+                BackgroundTransparency = 1,
+                Parent = ContentScroll
+            })
+            
+            local BtnFrame = Utility:Create("TextButton", {
+                Size = UDim2.new(1, -10, 0, 20),
+                Position = UDim2.new(0, 5, 0, 2),
+                BackgroundColor3 = Library.Theme.Element,
+                BorderSizePixel = 0,
+                Text = btnName,
+                TextColor3 = Library.Theme.Text,
+                Font = Enum.Font.Gotham,
+                TextSize = 11,
+                Parent = Wrapper
+            })
+            
+            BtnFrame.MouseButton1Click:Connect(callback)
         end
         
         -- Aliases
+        Category.Toggle = Category.CreateToggle
+        Category.Slider = Category.CreateSlider
+        Category.Colorpicker = Category.CreateColorpicker
+        Category.Dropdown = Category.CreateDropdown
+        Category.Keybind = Category.CreateKeybind
+        Category.TextBox = Category.CreateTextBox
+        Category.Button = Category.CreateButton
         Category.Section = Category.CreateSection
 
         return Category
